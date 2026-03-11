@@ -1,0 +1,24 @@
+name: Landing Zone Ingest
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger NWS ingest
+        run: |
+          curl -sS -X POST "$INGEST_BASE_URL/api/ingest/nws" \
+            -H "x-ingest-token: $INGEST_TOKEN" \
+            -H "content-type: application/json" \
+            --data '{"seeds":[{"lat":33.6367,"lon":-84.4281,"icao":"KATL","label":"Atlanta"},{"lat":40.6413,"lon":-73.7781,"icao":"KJFK","label":"New York JFK"},{"lat":38.8512,"lon":-77.0402,"icao":"KDCA","label":"Washington DCA"}]}'
+      - name: Trigger aviation ingest
+        run: |
+          curl -sS -X POST "$INGEST_BASE_URL/api/ingest/aviation" \
+            -H "x-ingest-token: $INGEST_TOKEN"
+    env:
+      INGEST_BASE_URL: ${{ secrets.INGEST_BASE_URL }}
+      INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
