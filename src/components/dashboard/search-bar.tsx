@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Loader2, Plane, Search } from "lucide-react";
 
 import { type Airport, formatAirportLabel } from "@/data/us-airports";
@@ -8,7 +8,7 @@ import { searchAirports } from "@/data/search-airports";
 import { useDashboardStore } from "@/store/dashboard-store";
 import { trpc } from "@/lib/trpc/client";
 
-export function SearchBar() {
+export const SearchBar = forwardRef<HTMLInputElement>(function SearchBar(_props, ref) {
   const setLocation = useDashboardStore((s) => s.setLocation);
   const locationLabel = useDashboardStore((s) => s.locationLabel);
   const selectedLocation = useDashboardStore((s) => s.selectedLocation);
@@ -18,6 +18,8 @@ export function SearchBar() {
   const [activeIndex, setActiveIndex] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useImperativeHandle(ref, () => inputRef.current!, []);
   const listRef = useRef<HTMLUListElement>(null);
 
   // Prefetch weather for the highlighted result so it's ready when they select
@@ -180,4 +182,4 @@ export function SearchBar() {
       )}
     </div>
   );
-}
+});
