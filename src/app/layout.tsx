@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
+import "@xyflow/react/dist/style.css";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { TrpcProvider } from "@/lib/trpc/provider";
