@@ -9,8 +9,13 @@ export interface TrpcContext {
 
 export function createContext(): TrpcContext {
   try {
-    return { supabase: getSupabaseServiceClient() };
-  } catch {
+    const supabase = getSupabaseServiceClient();
+    if (!supabase) {
+      console.warn("[trpc] Supabase unavailable — using in-memory fallback.");
+    }
+    return { supabase };
+  } catch (e) {
+    console.error("[trpc] Failed to create Supabase client:", e);
     return { supabase: null };
   }
 }
