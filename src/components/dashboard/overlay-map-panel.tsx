@@ -1,8 +1,8 @@
 "use client";
 
-import { Layers3, MapPinned } from "lucide-react";
+import { Cloud, Layers3, MapPinned, Radar, Thermometer } from "lucide-react";
 
-import { WeatherMap } from "@/components/dashboard/weather-map";
+import { AVAILABLE_WEATHER_KEYS, WeatherMap } from "@/components/dashboard/weather-map";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -16,13 +16,16 @@ interface OverlayMapPanelProps {
 }
 
 export function OverlayMapPanel({ overlays, state, onStateChange, center }: OverlayMapPanelProps) {
-  const activeOverlays = overlays.filter((overlay) => {
-    if (overlay.type === "METAR") return state.mapLayerMetar;
-    if (overlay.type === "TAF") return state.mapLayerTaf;
-    if (overlay.type === "SIGMET") return state.mapLayerSigmet;
-    if (overlay.type === "NOTAM") return state.mapLayerNotam;
+  const activeOverlays = overlays.filter((o) => {
+    if (o.type === "METAR") return state.mapLayerMetar;
+    if (o.type === "TAF") return state.mapLayerTaf;
+    if (o.type === "SIGMET") return state.mapLayerSigmet;
+    if (o.type === "NOTAM") return state.mapLayerNotam;
     return true;
   });
+
+  const toggle = (key: keyof OverlayStateInput, value: boolean) =>
+    onStateChange({ ...state, [key]: value });
 
   return (
     <Card>
@@ -39,28 +42,38 @@ export function OverlayMapPanel({ overlays, state, onStateChange, center }: Over
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="flex flex-wrap gap-4">
-          <Switch
-            checked={state.mapLayerMetar}
-            onCheckedChange={(checked) => onStateChange({ ...state, mapLayerMetar: checked })}
-            label="METAR"
-          />
-          <Switch
-            checked={state.mapLayerTaf}
-            onCheckedChange={(checked) => onStateChange({ ...state, mapLayerTaf: checked })}
-            label="TAF"
-          />
-          <Switch
-            checked={state.mapLayerSigmet}
-            onCheckedChange={(checked) => onStateChange({ ...state, mapLayerSigmet: checked })}
-            label="SIGMET"
-          />
-          <Switch
-            checked={state.mapLayerNotam}
-            onCheckedChange={(checked) => onStateChange({ ...state, mapLayerNotam: checked })}
-            label="NOTAM"
-          />
+        {/* Weather raster layers — only show toggles for layers the map can render */}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+          <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Weather</span>
+          {AVAILABLE_WEATHER_KEYS.has("mapLayerRadar") && (
+            <div className="flex items-center gap-1.5">
+              <Radar className="h-3.5 w-3.5 text-emerald-600" />
+              <Switch checked={state.mapLayerRadar} onCheckedChange={(v) => toggle("mapLayerRadar", v)} label="Radar" />
+            </div>
+          )}
+          {AVAILABLE_WEATHER_KEYS.has("mapLayerClouds") && (
+            <div className="flex items-center gap-1.5">
+              <Cloud className="h-3.5 w-3.5 text-slate-500" />
+              <Switch checked={state.mapLayerClouds} onCheckedChange={(v) => toggle("mapLayerClouds", v)} label="Clouds" />
+            </div>
+          )}
+          {AVAILABLE_WEATHER_KEYS.has("mapLayerTemp") && (
+            <div className="flex items-center gap-1.5">
+              <Thermometer className="h-3.5 w-3.5 text-orange-500" />
+              <Switch checked={state.mapLayerTemp} onCheckedChange={(v) => toggle("mapLayerTemp", v)} label="Temp" />
+            </div>
+          )}
         </div>
+
+        {/* Aviation point-data layers */}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+          <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Aviation</span>
+          <Switch checked={state.mapLayerMetar} onCheckedChange={(v) => toggle("mapLayerMetar", v)} label="METAR" />
+          <Switch checked={state.mapLayerTaf} onCheckedChange={(v) => toggle("mapLayerTaf", v)} label="TAF" />
+          <Switch checked={state.mapLayerSigmet} onCheckedChange={(v) => toggle("mapLayerSigmet", v)} label="SIGMET" />
+          <Switch checked={state.mapLayerNotam} onCheckedChange={(v) => toggle("mapLayerNotam", v)} label="NOTAM" />
+        </div>
+
         <WeatherMap overlays={activeOverlays} center={center} overlayState={state} />
       </CardContent>
     </Card>

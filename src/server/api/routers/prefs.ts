@@ -7,6 +7,9 @@ const overlayStateSchema = z.object({
   mapLayerTaf: z.boolean(),
   mapLayerSigmet: z.boolean(),
   mapLayerNotam: z.boolean(),
+  mapLayerRadar: z.boolean(),
+  mapLayerClouds: z.boolean(),
+  mapLayerTemp: z.boolean(),
 });
 
 let overlayState = {
@@ -14,6 +17,9 @@ let overlayState = {
   mapLayerTaf: true,
   mapLayerSigmet: true,
   mapLayerNotam: false,
+  mapLayerRadar: true,
+  mapLayerClouds: false,
+  mapLayerTemp: false,
 };
 
 export const prefsRouter = createTRPCRouter({
