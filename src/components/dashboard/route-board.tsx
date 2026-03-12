@@ -1,11 +1,19 @@
 import { Plane, Radar, TriangleAlert } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 
+import { flightCategoryStyle } from "@/components/dashboard/flight-category";
 import { severityBadgeVariant, severityLabel } from "@/components/dashboard/severity";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDistanceToNow } from "date-fns";
 import type { DispatcherBoard } from "@/server/types";
+
+function formatWind(station: DispatcherBoard["stations"][number]): string {
+  if (!station.weather) return "--";
+  const speed = station.weather.windSpeedKt;
+  if (speed === null) return "--";
+  return `${speed} kt`;
+}
 
 export function RouteBoardCard({ board }: { board: DispatcherBoard }) {
   return (
@@ -39,25 +47,43 @@ export function RouteBoardCard({ board }: { board: DispatcherBoard }) {
           <TableHeader>
             <TableRow>
               <TableHead>Station</TableHead>
-              <TableHead>Temp</TableHead>
-              <TableHead>Wind</TableHead>
-              <TableHead>Ceiling</TableHead>
               <TableHead>Flight Cat</TableHead>
+              <TableHead>Visibility</TableHead>
+              <TableHead>Ceiling</TableHead>
+              <TableHead>Wind</TableHead>
+              <TableHead>Temp</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {board.stations.map((station) => (
-              <TableRow key={station.icao}>
-                <TableCell className="font-medium">
-                  {station.icao}
-                  <div className="text-xs text-slate-500">{station.label}</div>
-                </TableCell>
-                <TableCell>{station.weather ? `${station.weather.temperatureF ?? "--"} F` : "--"}</TableCell>
-                <TableCell>{station.weather ? `${station.weather.windSpeedKt ?? "--"} kt` : "--"}</TableCell>
-                <TableCell>{station.weather ? `${station.weather.ceilingFt ?? "--"} ft` : "--"}</TableCell>
-                <TableCell>{station.weather?.category ?? "UNKNOWN"}</TableCell>
-              </TableRow>
-            ))}
+            {board.stations.map((station) => {
+              const cat = station.weather?.category ?? "UNKNOWN";
+              const catStyle = flightCategoryStyle(cat);
+              return (
+                <TableRow key={station.icao}>
+                  <TableCell className="font-medium">
+                    {station.icao}
+                    <div className="text-xs text-slate-500">{station.label}</div>
+                  </TableCell>
+                  <TableCell>
+                    <span className={`inline-block rounded px-1.5 py-0.5 text-xs font-bold ${catStyle.bg} ${catStyle.text}`}>
+                      {cat}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {station.weather?.visibilityMi != null
+                      ? `${station.weather.visibilityMi} mi`
+                      : "--"}
+                  </TableCell>
+                  <TableCell>
+                    {station.weather?.ceilingFt != null
+                      ? `${station.weather.ceilingFt.toLocaleString()} ft`
+                      : "--"}
+                  </TableCell>
+                  <TableCell>{formatWind(station)}</TableCell>
+                  <TableCell>{station.weather ? `${station.weather.temperatureF ?? "--"}°F` : "--"}</TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
 
@@ -72,6 +98,11 @@ export function RouteBoardCard({ board }: { board: DispatcherBoard }) {
                 <Badge key={hazard.id} variant={severityBadgeVariant(hazard.severity)}>
                   <TriangleAlert className="mr-1 h-3 w-3" />
                   {hazard.source}: {hazard.title}
+                  {hazard.expires && (
+                    <span className="ml-1 opacity-75">
+                      (expires {formatDistanceToNow(new Date(hazard.expires), { addSuffix: true })})
+                    </span>
+                  )}
                 </Badge>
               ))
             ) : (

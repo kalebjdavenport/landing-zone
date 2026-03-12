@@ -18,10 +18,10 @@ const ALL_ON: OverlayStateInput = {
 };
 
 const LEGEND_ITEMS = [
-  { label: "METAR", desc: "Current observations", color: "bg-teal-600" },
-  { label: "TAF", desc: "Terminal forecasts", color: "bg-teal-600" },
-  { label: "SIGMET", desc: "Significant weather", color: "bg-amber-500" },
-  { label: "NOTAM", desc: "Notices to airmen", color: "bg-rose-600" },
+  { label: "METAR", desc: "Surface obs (wind/vis/ceiling)", color: "bg-teal-600" },
+  { label: "TAF", desc: "Terminal forecast (6-30hr)", color: "bg-teal-600" },
+  { label: "SIGMET", desc: "Significant weather (icing/turb/convection)", color: "bg-amber-500" },
+  { label: "NOTAM", desc: "Airport & airspace notices", color: "bg-rose-600" },
 ];
 
 interface OverlayMapPanelProps {
