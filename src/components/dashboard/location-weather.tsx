@@ -15,7 +15,7 @@ export function LocationWeatherCard({ weather }: { weather: LocationWeather | nu
           <CardTitle>Location Weather</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-slate-600">Use the search bar above to look up an airport or city.</p>
+          <p className="text-sm text-slate-600">Use the search bar above to look up a US airport by code, name, or city.</p>
         </CardContent>
       </Card>
     );

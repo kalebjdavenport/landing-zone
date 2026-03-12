@@ -43,8 +43,8 @@ export const useDashboardStore = create<DashboardStore>()(
   persist(
     (set) => ({
       // Location
-      selectedLocation: { lat: 40.7128, lon: -73.9060 },
-      locationLabel: "New York, NY",
+      selectedLocation: { lat: 40.6413, lon: -73.7781 },
+      locationLabel: "KJFK — John F Kennedy International, New York, NY",
       setLocation: (lat, lon, label) =>
         set({ selectedLocation: { lat, lon }, locationLabel: label }),
       clearLocation: () =>
