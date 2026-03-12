@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
 
 export function Separator({ className }: { className?: string }) {
-  return <div className={cn("h-px w-full bg-slate-200", className)} />;
+  return <hr className={cn("h-px w-full border-0 bg-slate-200", className)} />;
 }

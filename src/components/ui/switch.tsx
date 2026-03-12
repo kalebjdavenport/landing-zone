@@ -19,6 +19,12 @@ export function Switch({ checked, onCheckedChange, label }: SwitchProps) {
         aria-checked={checked}
         aria-label={label}
         onClick={() => onCheckedChange(!checked)}
+        onKeyDown={(e) => {
+          if (e.key === " " || e.key === "Enter") {
+            e.preventDefault();
+            onCheckedChange(!checked);
+          }
+        }}
         className={cn(
           "relative inline-flex h-6 w-11 items-center rounded-full border transition",
           checked ? "border-cyan-600 bg-cyan-500" : "border-slate-300 bg-slate-200",

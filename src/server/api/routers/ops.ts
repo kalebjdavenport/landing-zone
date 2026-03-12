@@ -9,16 +9,10 @@ import {
   getNationalReport,
   listAviationOverlays,
   overlaysAreStale,
-  replaceAviationOverlays,
   upsertLocationWeather,
-  upsertNationalReport,
 } from "@/server/repositories/weather-repo";
-import { fetchAviationOverlays } from "@/server/services/aviation";
 import { searchUsLocation } from "@/server/services/geocoding";
-import {
-  fetchLocationWeatherFromNws,
-  fetchNationalReportFromNws,
-} from "@/server/services/nws";
+import { fetchLocationWeatherFromNws } from "@/server/services/nws";
 
 export const opsRouter = createTRPCRouter({
   getNationalReport: publicProcedure.query(async ({ ctx }) => {
@@ -27,10 +21,9 @@ export const opsRouter = createTRPCRouter({
       return cached;
     }
 
-    const fresh = await fetchNationalReportFromNws();
-    await upsertNationalReport(ctx.supabase, fresh);
-
-    return fresh;
+    // Return stale data (or null) on cache miss — the auto-ingest pipeline
+    // will populate fresh data and trigger a refetch via invalidation.
+    return cached ?? null;
   }),
 
   searchLocation: publicProcedure
@@ -102,10 +95,9 @@ export const opsRouter = createTRPCRouter({
         return listAviationOverlays(ctx.supabase);
       }
 
-      // Auto-fetch from AWC, scoped to location when provided
-      const fresh = await fetchAviationOverlays(center);
-      await replaceAviationOverlays(ctx.supabase, fresh, center);
-      return fresh;
+      // Return whatever we have (possibly empty) on cache miss — the
+      // auto-ingest pipeline will populate fresh data.
+      return listAviationOverlays(ctx.supabase);
     }),
 
   runIngestNow: publicProcedure

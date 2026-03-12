@@ -21,7 +21,7 @@ export function RouteBoardCard({ board }: { board: DispatcherBoard }) {
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-2">
           <span className="inline-flex items-center gap-2">
-            <Plane className="h-4 w-4" />
+            <Plane aria-hidden="true" className="h-4 w-4" />
             Dispatcher Route Board
           </span>
           <Badge variant={severityBadgeVariant(board.risk)}>{severityLabel(board.risk)} Risk</Badge>
@@ -46,12 +46,12 @@ export function RouteBoardCard({ board }: { board: DispatcherBoard }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Station</TableHead>
-              <TableHead>Flight Cat</TableHead>
-              <TableHead>Visibility</TableHead>
-              <TableHead>Ceiling</TableHead>
-              <TableHead>Wind</TableHead>
-              <TableHead>Temp</TableHead>
+              <TableHead scope="col">Station</TableHead>
+              <TableHead scope="col">Flight Cat</TableHead>
+              <TableHead scope="col">Visibility</TableHead>
+              <TableHead scope="col">Ceiling</TableHead>
+              <TableHead scope="col">Wind</TableHead>
+              <TableHead scope="col">Temp</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -89,14 +89,14 @@ export function RouteBoardCard({ board }: { board: DispatcherBoard }) {
 
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 text-sm text-slate-600">
-            <Radar className="h-4 w-4" />
+            <Radar aria-hidden="true" className="h-4 w-4" />
             Active Hazards
           </div>
           <div className="flex flex-wrap gap-2">
             {board.activeHazards.length ? (
               board.activeHazards.map((hazard) => (
                 <Badge key={hazard.id} variant={severityBadgeVariant(hazard.severity)}>
-                  <TriangleAlert className="mr-1 h-3 w-3" />
+                  <TriangleAlert aria-hidden="true" className="mr-1 h-3 w-3" />
                   {hazard.source}: {hazard.title}
                   {hazard.expires && (
                     <span className="ml-1 opacity-75">

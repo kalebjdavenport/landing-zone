@@ -38,6 +38,40 @@ export async function appendDeltaEvent(
   return next;
 }
 
+export async function appendDeltaEventsBatch(
+  supabase: SupabaseClient | null,
+  events: Omit<DeltaFeedItem, "id">[],
+) {
+  const items = events.map((event) => ({
+    ...event,
+    id: toEventId(),
+  })) satisfies DeltaFeedItem[];
+
+  memory.deltaFeed = [...items, ...memory.deltaFeed]
+    .sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())
+    .slice(0, 200);
+
+  if (!supabase || items.length === 0) {
+    return items;
+  }
+
+  await supabase.from("event_log").insert(
+    items.map((item) => ({
+      id: item.id,
+      type: item.type,
+      severity: item.severity,
+      summary: item.summary,
+      route_id: item.routeId,
+      location_key: item.locationKey,
+      occurred_at: item.occurredAt,
+      payload: item.payload,
+      created_at: nowIso(),
+    })),
+  );
+
+  return items;
+}
+
 export async function getDeltaFeed(
   supabase: SupabaseClient | null,
   since?: string,

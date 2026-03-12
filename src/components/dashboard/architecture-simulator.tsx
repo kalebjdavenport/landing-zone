@@ -163,7 +163,7 @@ export function ArchitectureSimulator() {
         </div>
 
         {/* Metrics row */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-2" aria-label="Pipeline metrics">
           <div className="rounded-lg border border-slate-200 bg-white p-2.5">
             <p className="text-xs text-slate-500">Total runs</p>
             <p className="mt-0.5 text-lg font-semibold text-slate-900">{totalRuns}</p>
@@ -174,7 +174,7 @@ export function ArchitectureSimulator() {
           </div>
           <div className="rounded-lg border border-slate-200 bg-white p-2.5">
             <p className="text-xs text-slate-500">Status</p>
-            <p className={cn("mt-0.5 text-lg font-semibold", activeStage !== null ? "text-cyan-600" : "text-slate-400")}>
+            <p aria-live="polite" aria-atomic="true" className={cn("mt-0.5 text-lg font-semibold", activeStage !== null ? "text-cyan-600" : "text-slate-400")}>
               {activeStage !== null ? "Running" : "Idle"}
             </p>
           </div>

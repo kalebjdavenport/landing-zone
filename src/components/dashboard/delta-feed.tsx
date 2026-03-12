@@ -43,13 +43,13 @@ function typeIcon(type: DeltaFeedItem["type"]) {
   switch (type) {
     case "hazard.created":
     case "hazard.updated":
-      return <AlertTriangle className="h-3.5 w-3.5" />;
+      return <AlertTriangle aria-hidden="true" className="h-3.5 w-3.5" />;
     case "hazard.expired":
-      return <CloudLightning className="h-3.5 w-3.5" />;
+      return <CloudLightning aria-hidden="true" className="h-3.5 w-3.5" />;
     case "observation.updated":
-      return <Radio className="h-3.5 w-3.5" />;
+      return <Radio aria-hidden="true" className="h-3.5 w-3.5" />;
     case "briefing.updated":
-      return <Plane className="h-3.5 w-3.5" />;
+      return <Plane aria-hidden="true" className="h-3.5 w-3.5" />;
   }
 }
 
@@ -86,19 +86,20 @@ export function DeltaFeedCard({ items }: { items: DeltaFeedItem[] }) {
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="inline-flex items-center gap-2">
-            <ActivitySquare className="h-4 w-4" />
+            <ActivitySquare aria-hidden="true" className="h-4 w-4" />
             Delta Feed
           </CardTitle>
           <button
             type="button"
+            aria-label="Refresh weather data"
             onClick={() => ingest.mutate({ source: "all" })}
             disabled={ingest.isPending}
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2"
           >
             {ingest.isPending ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
+              <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin" />
             ) : (
-              <RefreshCw className="h-3 w-3" />
+              <RefreshCw aria-hidden="true" className="h-3 w-3" />
             )}
             {ingest.isPending ? "Refreshing…" : "Refresh"}
           </button>
@@ -108,41 +109,45 @@ export function DeltaFeedCard({ items }: { items: DeltaFeedItem[] }) {
         </p>
       </CardHeader>
       <CardContent>
-        {prioritized.length ? (
-          <AnimatedList
-            items={prioritized}
-            getKey={(item) => item.id}
-            renderItem={(item) => (
-              <article className="rounded-lg border border-slate-200 bg-white/80 p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <Badge variant={severityBadgeVariant(item.severity)}>
-                      <span className="inline-flex items-center gap-1">
-                        {typeIcon(item.type)}
-                        {TYPE_LABELS[item.type]}
-                      </span>
-                    </Badge>
+        <div role="log" aria-label="Real-time weather changes" aria-live="polite">
+          {prioritized.length ? (
+            <AnimatedList
+              items={prioritized}
+              getKey={(item) => item.id}
+              renderItem={(item) => (
+                <article aria-label={`${TYPE_LABELS[item.type]}: ${item.summary}`} className="rounded-lg border border-slate-200 bg-white/80 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant={severityBadgeVariant(item.severity)}>
+                        <span className="inline-flex items-center gap-1">
+                          {typeIcon(item.type)}
+                          {TYPE_LABELS[item.type]}
+                        </span>
+                      </Badge>
+                    </div>
+                    <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+                      <Clock3 aria-hidden="true" className="h-3 w-3" />
+                      <time dateTime={item.occurredAt}>
+                        {formatDistanceToNow(new Date(item.occurredAt), { addSuffix: true })}
+                      </time>
+                    </span>
                   </div>
-                  <span className="inline-flex items-center gap-1 text-xs text-slate-500">
-                    <Clock3 className="h-3 w-3" />
-                    {formatDistanceToNow(new Date(item.occurredAt), { addSuffix: true })}
-                  </span>
-                </div>
-                <p className="mt-1.5 text-sm text-slate-700">{item.summary}</p>
-                {item.locationKey && (
-                  <span className="mt-1 inline-flex items-center gap-1 text-xs text-slate-400">
-                    <MapPin className="h-3 w-3" />
-                    {formatLocation(item.locationKey)}
-                  </span>
-                )}
-              </article>
-            )}
-          />
-        ) : (
-          <p className="text-sm text-slate-600">
-            No recent changes. Ingest will run automatically to populate this feed.
-          </p>
-        )}
+                  <p className="mt-1.5 text-sm text-slate-700">{item.summary}</p>
+                  {item.locationKey && (
+                    <span className="mt-1 inline-flex items-center gap-1 text-xs text-slate-400">
+                      <MapPin aria-hidden="true" className="h-3 w-3" />
+                      {formatLocation(item.locationKey)}
+                    </span>
+                  )}
+                </article>
+              )}
+            />
+          ) : (
+            <p className="text-sm text-slate-600">
+              No recent changes. Ingest will run automatically to populate this feed.
+            </p>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

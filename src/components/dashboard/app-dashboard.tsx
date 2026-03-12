@@ -28,7 +28,15 @@ export function AppDashboard() {
   const selectedLocation = useDashboardStore((s) => s.selectedLocation);
   const locationLabel = useDashboardStore((s) => s.locationLabel);
   useUrlSync();
-  useRealtimeFeed(routeId);
+
+  const utils = trpc.useUtils();
+  const ingestMutation = trpc.ops.runIngestNow.useMutation({
+    onSuccess: () => utils.ops.invalidate(),
+  });
+
+  // Suppress realtime invalidations while ingest is running — the
+  // mutation's onSuccess already does a single coordinated invalidate.
+  useRealtimeFeed(routeId, !ingestMutation.isPending);
 
   const nationalReport = trpc.ops.getNationalReport.useQuery();
   const dispatcherBoard = trpc.ops.getDispatcherBoard.useQuery({ routeId });
@@ -41,11 +49,6 @@ export function AppDashboard() {
     selectedLocation!,
     { enabled: selectedLocation !== null },
   );
-
-  const utils = trpc.useUtils();
-  const ingestMutation = trpc.ops.runIngestNow.useMutation({
-    onSuccess: () => utils.ops.invalidate(),
-  });
 
   // Auto-run ingest on first load when the delta feed is empty
   const didAutoIngest = useRef(false);
@@ -74,7 +77,7 @@ export function AppDashboard() {
   ]);
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-100 via-cyan-50 to-emerald-100">
+    <main id="main-content" className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-100 via-cyan-50 to-emerald-100">
       <GridBackground />
 
       {/* ── Top nav bar ── */}
@@ -90,14 +93,15 @@ export function AppDashboard() {
           {/* Actions */}
           <Button
             size="sm"
+            aria-label="Refresh all weather data"
             onClick={() => ingestMutation.mutate({ source: "all" })}
             disabled={ingestMutation.isPending}
             className="shrink-0 bg-cyan-600 text-white hover:bg-cyan-500"
           >
             {ingestMutation.isPending ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              <Loader2 aria-hidden="true" className="mr-1.5 h-4 w-4 animate-spin" />
             ) : (
-              <CloudUpload className="mr-1.5 h-4 w-4" />
+              <CloudUpload aria-hidden="true" className="mr-1.5 h-4 w-4" />
             )}
             <span className="hidden sm:inline">Refresh Data</span>
           </Button>
@@ -114,90 +118,100 @@ export function AppDashboard() {
 
         {view === "operations" ? (
           <>
-            <section>
+            <section aria-label="National Overview">
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">National Overview</h2>
-              {nationalReport.isLoading ? (
-                <Skeleton className="h-52 w-full" />
-              ) : nationalReport.isError ? (
-                <Card className="p-6 text-center">
-                  <p className="text-sm text-slate-500">Unable to load national report.</p>
-                  <button onClick={() => nationalReport.refetch()} className="mt-2 text-sm text-cyan-600 hover:underline cursor-pointer">
-                    Try again
-                  </button>
-                </Card>
-              ) : nationalReport.data ? (
-                <NationalReportCard report={nationalReport.data} />
-              ) : null}
+              <div aria-live="polite" aria-atomic="true">
+                {nationalReport.isLoading ? (
+                  <Skeleton className="h-52 w-full" aria-label="Loading national report" />
+                ) : nationalReport.isError ? (
+                  <Card className="p-6 text-center" role="alert">
+                    <p className="text-sm text-slate-500">Unable to load national report.</p>
+                    <button type="button" onClick={() => nationalReport.refetch()} className="mt-2 text-sm text-cyan-600 hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 rounded">
+                      Try again
+                    </button>
+                  </Card>
+                ) : nationalReport.data ? (
+                  <NationalReportCard report={nationalReport.data} />
+                ) : null}
+              </div>
             </section>
 
-            <section>
+            <section aria-label="Route Board">
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Route Board</h2>
-              {dispatcherBoard.isLoading ? (
-                <Skeleton className="h-96 w-full" />
-              ) : dispatcherBoard.isError ? (
-                <Card className="p-6 text-center">
-                  <p className="text-sm text-slate-500">Unable to load route board.</p>
-                  <button onClick={() => dispatcherBoard.refetch()} className="mt-2 text-sm text-cyan-600 hover:underline cursor-pointer">
-                    Try again
-                  </button>
-                </Card>
-              ) : dispatcherBoard.data ? (
-                <RouteBoardCard board={dispatcherBoard.data} />
-              ) : null}
+              <div aria-live="polite" aria-atomic="true">
+                {dispatcherBoard.isLoading ? (
+                  <Skeleton className="h-96 w-full" aria-label="Loading route board" />
+                ) : dispatcherBoard.isError ? (
+                  <Card className="p-6 text-center" role="alert">
+                    <p className="text-sm text-slate-500">Unable to load route board.</p>
+                    <button type="button" onClick={() => dispatcherBoard.refetch()} className="mt-2 text-sm text-cyan-600 hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 rounded">
+                      Try again
+                    </button>
+                  </Card>
+                ) : dispatcherBoard.data ? (
+                  <RouteBoardCard board={dispatcherBoard.data} />
+                ) : null}
+              </div>
             </section>
 
             {/* ── Weather Map — primary visualization ── */}
-            <section>
+            <section aria-label="Weather Map">
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Weather Map</h2>
-              {overlays.isLoading ? (
-                <Skeleton className="h-[500px] w-full" />
-              ) : overlays.isError ? (
-                <Card className="p-6 text-center">
-                  <p className="text-sm text-slate-500">Unable to load aviation overlays.</p>
-                  <button onClick={() => overlays.refetch()} className="mt-2 text-sm text-cyan-600 hover:underline cursor-pointer">
-                    Try again
-                  </button>
-                </Card>
-              ) : (
-                <OverlayMapPanel
-                  overlays={overlays.data ?? []}
-                  center={chosenCenter}
-                />
-              )}
+              <div aria-live="polite" aria-atomic="true">
+                {overlays.isLoading ? (
+                  <Skeleton className="h-[500px] w-full" aria-label="Loading weather map" />
+                ) : overlays.isError ? (
+                  <Card className="p-6 text-center" role="alert">
+                    <p className="text-sm text-slate-500">Unable to load aviation overlays.</p>
+                    <button type="button" onClick={() => overlays.refetch()} className="mt-2 text-sm text-cyan-600 hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 rounded">
+                      Try again
+                    </button>
+                  </Card>
+                ) : (
+                  <OverlayMapPanel
+                    overlays={overlays.data ?? []}
+                    center={chosenCenter}
+                  />
+                )}
+              </div>
             </section>
 
             {/* ── Location details + Live changes side by side ── */}
-            <section>
+            <section aria-label="Location details and live changes">
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                 <div>
                   <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Location Details</h2>
-                  {locationWeather.isLoading ? (
-                    <Skeleton className="h-52 w-full" />
-                  ) : locationWeather.isError ? (
-                    <Card className="p-6 text-center">
-                      <p className="text-sm text-slate-500">Unable to load location weather.</p>
-                      <button onClick={() => locationWeather.refetch()} className="mt-2 text-sm text-cyan-600 hover:underline cursor-pointer">
-                        Try again
-                      </button>
-                    </Card>
-                  ) : (
-                    <LocationWeatherCard weather={locationWeather.data ?? null} label={locationLabel} />
-                  )}
+                  <div aria-live="polite" aria-atomic="true">
+                    {locationWeather.isLoading ? (
+                      <Skeleton className="h-52 w-full" aria-label="Loading location weather" />
+                    ) : locationWeather.isError ? (
+                      <Card className="p-6 text-center" role="alert">
+                        <p className="text-sm text-slate-500">Unable to load location weather.</p>
+                        <button type="button" onClick={() => locationWeather.refetch()} className="mt-2 text-sm text-cyan-600 hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 rounded">
+                          Try again
+                        </button>
+                      </Card>
+                    ) : (
+                      <LocationWeatherCard weather={locationWeather.data ?? null} label={locationLabel} />
+                    )}
+                  </div>
                 </div>
                 <div>
                   <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Live Changes</h2>
-                  {deltaFeed.isLoading ? (
-                    <Skeleton className="h-52 w-full" />
-                  ) : deltaFeed.isError ? (
-                    <Card className="p-6 text-center">
-                      <p className="text-sm text-slate-500">Unable to load live changes.</p>
-                      <button onClick={() => deltaFeed.refetch()} className="mt-2 text-sm text-cyan-600 hover:underline cursor-pointer">
-                        Try again
-                      </button>
-                    </Card>
-                  ) : (
-                    <DeltaFeedCard items={deltaFeed.data ?? []} />
-                  )}
+                  <div aria-live="polite" aria-atomic="true">
+                    {deltaFeed.isLoading ? (
+                      <Skeleton className="h-52 w-full" aria-label="Loading live changes" />
+                    ) : deltaFeed.isError ? (
+                      <Card className="p-6 text-center" role="alert">
+                        <p className="text-sm text-slate-500">Unable to load live changes.</p>
+                        <button type="button" onClick={() => deltaFeed.refetch()} className="mt-2 text-sm text-cyan-600 hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 rounded">
+                          Try again
+                        </button>
+                      </Card>
+                    ) : (
+                      <DeltaFeedCard items={deltaFeed.data ?? []} />
+                    )}
+                  </div>
                 </div>
               </div>
             </section>

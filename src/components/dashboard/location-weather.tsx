@@ -77,7 +77,7 @@ export function LocationWeatherCard({ weather, label }: LocationWeatherCardProps
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-2">
           <span className="inline-flex items-center gap-2">
-            <MapPin className="h-4 w-4" />
+            <MapPin aria-hidden="true" className="h-4 w-4" />
             {label || `${weather.point.city}, ${weather.point.state}`}
           </span>
           <span
@@ -92,7 +92,7 @@ export function LocationWeatherCard({ weather, label }: LocationWeatherCardProps
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <div className="rounded-md border border-slate-200 p-2">
             <div className="inline-flex items-center gap-1 text-xs text-slate-500">
-              <Eye className="h-3 w-3" />
+              <Eye aria-hidden="true" className="h-3 w-3" />
               Visibility
             </div>
             <div className="mt-1 text-sm font-semibold text-slate-900">
@@ -103,7 +103,7 @@ export function LocationWeatherCard({ weather, label }: LocationWeatherCardProps
           </div>
           <div className="rounded-md border border-slate-200 p-2">
             <div className="inline-flex items-center gap-1 text-xs text-slate-500">
-              <Gauge className="h-3 w-3" />
+              <Gauge aria-hidden="true" className="h-3 w-3" />
               Ceiling
             </div>
             <div className="mt-1 text-sm font-semibold text-slate-900">
@@ -114,7 +114,7 @@ export function LocationWeatherCard({ weather, label }: LocationWeatherCardProps
           </div>
           <div className="rounded-md border border-slate-200 p-2">
             <div className="inline-flex items-center gap-1 text-xs text-slate-500">
-              <Wind className="h-3 w-3" />
+              <Wind aria-hidden="true" className="h-3 w-3" />
               Wind
             </div>
             <div className="mt-1 text-sm font-semibold text-slate-900">
@@ -123,7 +123,7 @@ export function LocationWeatherCard({ weather, label }: LocationWeatherCardProps
           </div>
           <div className="rounded-md border border-slate-200 p-2">
             <div className="inline-flex items-center gap-1 text-xs text-slate-500">
-              <Thermometer className="h-3 w-3" />
+              <Thermometer aria-hidden="true" className="h-3 w-3" />
               Temp / Dewpoint
             </div>
             <div className="mt-1 text-sm font-semibold text-slate-900">
@@ -173,13 +173,13 @@ export function LocationWeatherCard({ weather, label }: LocationWeatherCardProps
         <div>
           <h4 className="text-sm font-semibold text-slate-900">Forecast</h4>
           <div className="mt-2 overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm" aria-label="Weather forecast">
               <thead>
                 <tr className="border-b border-slate-200 text-left text-xs text-slate-500">
-                  <th className="pb-1.5 pr-3 font-medium">Period</th>
-                  <th className="pb-1.5 pr-3 font-medium">Conditions</th>
-                  <th className="pb-1.5 pr-3 font-medium">Temp</th>
-                  <th className="pb-1.5 font-medium">Wind</th>
+                  <th scope="col" className="pb-1.5 pr-3 font-medium">Period</th>
+                  <th scope="col" className="pb-1.5 pr-3 font-medium">Conditions</th>
+                  <th scope="col" className="pb-1.5 pr-3 font-medium">Temp</th>
+                  <th scope="col" className="pb-1.5 font-medium">Wind</th>
                 </tr>
               </thead>
               <tbody>
@@ -197,7 +197,7 @@ export function LocationWeatherCard({ weather, label }: LocationWeatherCardProps
         </div>
 
         <div className="flex items-center gap-1.5 text-xs text-slate-500">
-          <Clock3 className="h-3.5 w-3.5" />
+          <Clock3 aria-hidden="true" className="h-3.5 w-3.5" />
           Last obs {formatDistanceToNow(new Date(weather.lastSuccessAt), { addSuffix: true })}
           {weather.stale ? " (stale)" : ""}
         </div>

@@ -282,7 +282,11 @@ export function SystemDiagram() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="h-[400px] w-full overflow-hidden rounded-xl border border-slate-200 bg-white md:h-[500px]">
+        <div
+          role="img"
+          aria-label="System architecture diagram showing data flow from NWS and Aviation Weather APIs through the ingest pipeline and Supabase database to the React dashboard"
+          className="h-[400px] w-full overflow-hidden rounded-xl border border-slate-200 bg-white md:h-[500px]"
+        >
           <ReactFlow
             nodes={nodes}
             edges={edges}

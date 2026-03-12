@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { trpc } from "@/lib/trpc/client";
 
-export function useRealtimeFeed(routeId: string) {
+export function useRealtimeFeed(routeId: string, enabled = true) {
   const utils = trpc.useUtils();
 
   useEffect(() => {
@@ -25,6 +25,7 @@ export function useRealtimeFeed(routeId: string) {
           table: "event_log",
         },
         () => {
+          if (!enabled) return;
           void utils.ops.getDeltaFeed.invalidate();
           void utils.ops.getNationalReport.invalidate();
           void utils.ops.getDispatcherBoard.invalidate({ routeId });
@@ -36,5 +37,5 @@ export function useRealtimeFeed(routeId: string) {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [routeId, utils]);
+  }, [routeId, utils, enabled]);
 }

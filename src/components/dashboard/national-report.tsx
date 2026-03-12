@@ -26,14 +26,14 @@ export function NationalReportCard({ report }: { report: NationalReport }) {
           <div className="rounded-lg border border-slate-200 bg-white p-3">
             <div className="text-xs text-slate-500">Active Alerts</div>
             <div className="mt-1 flex items-center gap-2 text-xl font-semibold text-slate-900">
-              <Siren className="h-4 w-4" />
+              <Siren aria-hidden="true" className="h-4 w-4" />
               {report.activeAlerts}
             </div>
           </div>
           <div className="rounded-lg border border-slate-200 bg-white p-3">
             <div className="text-xs text-slate-500">Severe Alerts</div>
             <div className="mt-1 flex items-center gap-2 text-xl font-semibold text-rose-700">
-              <AlertTriangle className="h-4 w-4" />
+              <AlertTriangle aria-hidden="true" className="h-4 w-4" />
               {report.severeAlerts}
             </div>
           </div>
@@ -41,13 +41,13 @@ export function NationalReportCard({ report }: { report: NationalReport }) {
 
         {/* Dynamic summary */}
         <div className={`flex items-start gap-2 rounded-md border p-3 text-sm ${threat.bg}`}>
-          <ShieldAlert className={`mt-0.5 h-4 w-4 shrink-0 ${threat.color}`} />
+          <ShieldAlert aria-hidden="true" className={`mt-0.5 h-4 w-4 shrink-0 ${threat.color}`} />
           <span className={`font-medium ${threat.color}`}>{summary}</span>
         </div>
 
         {report.activeAlerts > 0 && (
           <div className="flex items-center gap-1.5 text-xs text-slate-500">
-            <Info className="h-3.5 w-3.5 shrink-0" />
+            <Info aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
             Check Route Board below for affected segments.
           </div>
         )}
@@ -55,7 +55,7 @@ export function NationalReportCard({ report }: { report: NationalReport }) {
         <Separator />
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
           <span className="inline-flex items-center gap-1">
-            <Clock3 className="h-3.5 w-3.5" />
+            <Clock3 aria-hidden="true" className="h-3.5 w-3.5" />
             Updated {formatDistanceToNow(new Date(report.lastSuccessAt), { addSuffix: true })}
             {report.stale ? " (stale)" : ""}
           </span>

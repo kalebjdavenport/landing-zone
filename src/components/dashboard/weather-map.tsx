@@ -217,5 +217,12 @@ export function WeatherMap({ center, overlays, overlayState }: WeatherMapProps) 
     }
   }, [overlayState]);
 
-  return <div ref={containerRef} className="h-[420px] w-full rounded-xl border border-slate-200" />;
+  return (
+    <div
+      ref={containerRef}
+      role="img"
+      aria-label="Interactive weather map showing radar, aviation overlays, and station markers"
+      className="h-[420px] w-full rounded-xl border border-slate-200"
+    />
+  );
 }

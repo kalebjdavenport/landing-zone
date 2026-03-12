@@ -79,10 +79,11 @@ export function SearchBar() {
 
   return (
     <div ref={searchRef} className="relative flex flex-1 max-w-2xl">
-      <div className="flex items-center whitespace-nowrap rounded-l-md bg-slate-600/80 px-3 text-xs font-medium text-slate-300 select-none">
-        <Plane className="mr-1.5 h-3.5 w-3.5" />
+      <label htmlFor="search" className="flex items-center whitespace-nowrap rounded-l-md bg-slate-600/80 px-3 text-xs font-medium text-slate-300 select-none">
+        <Plane aria-hidden="true" className="mr-1.5 h-3.5 w-3.5" />
         <span className="hidden sm:inline">US Airport</span>
-      </div>
+        <span className="sr-only sm:hidden">Search US airports</span>
+      </label>
       <input
         ref={inputRef}
         id="search"
@@ -112,7 +113,8 @@ export function SearchBar() {
           }
         }}
         placeholder="KATL, JFK, Atlanta …"
-        className="h-10 w-full border-0 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
+        aria-label="Search US airports by code, name, or city"
+        className="h-10 w-full border-0 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-600"
         role="combobox"
         aria-expanded={searchOpen && results.length > 0}
         aria-activedescendant={activeAirport ? `airport-${activeAirport.icao}` : undefined}
@@ -121,15 +123,16 @@ export function SearchBar() {
       />
       <button
         type="button"
+        aria-label="Search"
         onClick={() => {
           if (results.length > 0) handleSelect(results[activeIndex]);
         }}
-        className="flex cursor-pointer items-center rounded-r-md bg-cyan-600 px-4 text-sm font-medium text-white transition-colors hover:bg-cyan-500"
+        className="flex cursor-pointer items-center rounded-r-md bg-cyan-600 px-4 text-sm font-medium text-white transition-colors hover:bg-cyan-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2"
       >
         {isLoadingWeather ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
         ) : (
-          <Search className="h-4 w-4" />
+          <Search aria-hidden="true" className="h-4 w-4" />
         )}
       </button>
 
@@ -150,7 +153,8 @@ export function SearchBar() {
             >
               <button
                 type="button"
-                className={`flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                tabIndex={-1}
+                className={`flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-400 ${
                   i === activeIndex
                     ? "bg-cyan-50 text-cyan-900"
                     : "text-slate-700 hover:bg-slate-50"

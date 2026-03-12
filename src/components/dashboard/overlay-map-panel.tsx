@@ -35,11 +35,11 @@ export function OverlayMapPanel({ overlays, center }: OverlayMapPanelProps) {
       <CardHeader>
         <CardTitle className="inline-flex items-center justify-between gap-2">
           <span className="inline-flex items-center gap-2">
-            <MapPinned className="h-4 w-4" />
+            <MapPinned aria-hidden="true" className="h-4 w-4" />
             Weather Overlay Map
           </span>
           <Badge variant="neutral">
-            <Layers3 className="mr-1 h-3 w-3" />
+            <Layers3 aria-hidden="true" className="mr-1 h-3 w-3" />
             {overlays.length} overlays
           </Badge>
         </CardTitle>
@@ -49,7 +49,7 @@ export function OverlayMapPanel({ overlays, center }: OverlayMapPanelProps) {
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
           {LEGEND_ITEMS.map((item) => (
             <div key={item.label} className="flex items-center gap-1.5 text-xs text-slate-600">
-              <span className={`inline-block h-2.5 w-2.5 rounded-full ${item.color}`} />
+              <span aria-hidden="true" className={`inline-block h-2.5 w-2.5 rounded-full ${item.color}`} />
               <span className="font-medium">{item.label}</span>
               <span className="text-slate-400">{item.desc}</span>
             </div>
