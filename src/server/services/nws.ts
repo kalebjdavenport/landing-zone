@@ -2,11 +2,23 @@ import { addMinutes, subMinutes } from "date-fns";
 
 import { nowIso } from "@/lib/utils";
 import { severityFromText } from "@/server/services/severity";
-import type { LocationWeather, NationalReport, SearchLocationResult } from "@/server/types";
+import type { LocationWeather, NationalReport } from "@/server/types";
 
 const NWS_BASE_URL = "https://api.weather.gov";
 const USER_AGENT =
   process.env.NWS_USER_AGENT ?? "LandingZone/1.0 (interview@infotrak.local)";
+
+/** NWS API caps practical alert processing at this count */
+const MAX_ALERTS_TO_PROCESS = 400;
+
+/** Number of forecast periods to include in location weather */
+const FORECAST_PERIOD_LIMIT = 8;
+
+/** m/s to knots conversion factor */
+const MS_TO_KNOTS = 1.94384;
+
+/** Round knot values to nearest increment */
+const KNOT_ROUNDING = 5;
 
 async function nwsFetch<T>(path: string): Promise<T> {
   const response = await fetch(`${NWS_BASE_URL}${path}`, {
@@ -132,6 +144,50 @@ interface NwsObservationStationsResponse {
   features: Array<{ id: string }>;
 }
 
+function formatWindSpeed(windSpeedMs: number | null): string | null {
+  if (windSpeedMs === null) {
+    return null;
+  }
+
+  return `${Math.round((windSpeedMs * MS_TO_KNOTS) / KNOT_ROUNDING) * KNOT_ROUNDING} kt`;
+}
+
+function formatWindDirection(degrees: number | null | undefined): string | null {
+  if (degrees === null || degrees === undefined) {
+    return null;
+  }
+
+  return `${Math.round(degrees)}°`;
+}
+
+async function fetchLatestObservation(stationUrl: string): Promise<NwsObservationResponse | null> {
+  const response = await fetch(`${stationUrl}/observations/latest`, {
+    headers: {
+      "User-Agent": USER_AGENT,
+      Accept: "application/geo+json",
+    },
+    next: {
+      revalidate: 180,
+    },
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return response.json() as Promise<NwsObservationResponse>;
+}
+
+/** Parse a wind speed string like "15 kt" or "10 mph" into knots, or null */
+export function parseWindSpeedKt(windString: string | null): number | null {
+  if (!windString) {
+    return null;
+  }
+
+  const numeric = Number(windString.replace(/[^0-9.]/g, ""));
+  return Number.isNaN(numeric) ? null : numeric;
+}
+
 export async function fetchNationalReportFromNws(): Promise<NationalReport> {
   const generatedAt = nowIso();
 
@@ -144,7 +200,7 @@ export async function fetchNationalReportFromNws(): Promise<NationalReport> {
     const topEvents = new Map<string, number>();
     let severeAlerts = 0;
 
-    for (const feature of alertsResponse.features.slice(0, 400)) {
+    for (const feature of alertsResponse.features.slice(0, MAX_ALERTS_TO_PROCESS)) {
       const eventName = feature.properties.event || "Unknown";
       topEvents.set(eventName, (topEvents.get(eventName) ?? 0) + 1);
 
@@ -219,25 +275,9 @@ export async function fetchLocationWeatherFromNws(
     nwsFetch<NwsAlertsResponse>(`/alerts/active?point=${lat},${lon}`),
   ]);
 
-  let latestObservation: NwsObservationResponse | null = null;
-
-  if (stationResponse.features[0]?.id) {
-    latestObservation = await fetch(`${stationResponse.features[0].id}/observations/latest`, {
-      headers: {
-        "User-Agent": USER_AGENT,
-        Accept: "application/geo+json",
-      },
-      next: {
-        revalidate: 180,
-      },
-    }).then((res) => {
-      if (!res.ok) {
-        return null;
-      }
-
-      return res.json() as Promise<NwsObservationResponse>;
-    });
-  }
+  const latestObservation = stationResponse.features[0]?.id
+    ? await fetchLatestObservation(stationResponse.features[0].id)
+    : null;
 
   return {
     point: {
@@ -256,19 +296,13 @@ export async function fetchLocationWeatherFromNws(
       temperatureF: celsiusToFahrenheit(
         parseNumber(latestObservation?.properties.temperature.value ?? null),
       ),
-      windSpeed: latestObservation?.properties.windSpeed.value
-        ? `${Math.round((latestObservation.properties.windSpeed.value * 1.94384) / 5) * 5} kt`
-        : null,
-      windDirection:
-        latestObservation?.properties.windDirection.value !== null &&
-        latestObservation?.properties.windDirection.value !== undefined
-          ? `${Math.round(latestObservation.properties.windDirection.value)}°`
-          : null,
+      windSpeed: formatWindSpeed(latestObservation?.properties.windSpeed.value ?? null),
+      windDirection: formatWindDirection(latestObservation?.properties.windDirection.value),
       textDescription: latestObservation?.properties.textDescription ?? null,
       relativeHumidity: parseNumber(latestObservation?.properties.relativeHumidity.value ?? null),
       timestamp: latestObservation?.properties.timestamp ?? null,
     },
-    forecast: forecastResponse.properties.periods.slice(0, 8),
+    forecast: forecastResponse.properties.periods.slice(0, FORECAST_PERIOD_LIMIT),
     alerts: alertsResponse.features.map((feature) => ({
       id: feature.id,
       event: feature.properties.event,
@@ -281,67 +315,6 @@ export async function fetchLocationWeatherFromNws(
     lastSuccessAt: generatedAt,
     stale: false,
   };
-}
-
-interface NominatimResult {
-  place_id: number;
-  display_name: string;
-  lat: string;
-  lon: string;
-  address?: {
-    state?: string;
-  };
-}
-
-export async function searchUsLocation(query: string): Promise<SearchLocationResult[]> {
-  if (!query.trim()) {
-    return [];
-  }
-
-  const compact = query.trim();
-  const latLon = compact.match(
-    /^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/,
-  );
-
-  if (latLon) {
-    return [
-      {
-        id: `${latLon[1]},${latLon[2]}`,
-        displayName: `Coordinates ${latLon[1]}, ${latLon[2]}`,
-        lat: Number(latLon[1]),
-        lon: Number(latLon[2]),
-        state: "Unknown",
-      },
-    ];
-  }
-
-  const response = await fetch(
-    `https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=us&limit=6&q=${encodeURIComponent(
-      compact,
-    )}`,
-    {
-      headers: {
-        "User-Agent": USER_AGENT,
-      },
-      next: {
-        revalidate: 3600,
-      },
-    },
-  );
-
-  if (!response.ok) {
-    return [];
-  }
-
-  const results = (await response.json()) as NominatimResult[];
-
-  return results.map((item) => ({
-    id: String(item.place_id),
-    displayName: item.display_name,
-    lat: Number(item.lat),
-    lon: Number(item.lon),
-    state: item.address?.state ?? "Unknown",
-  }));
 }
 
 export function computeStale(lastSuccessAt: string | null, maxAgeMinutes: number) {

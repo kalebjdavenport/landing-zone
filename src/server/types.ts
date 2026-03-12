@@ -101,6 +101,9 @@ export interface OverlayStateInput {
   mapLayerTaf: boolean;
   mapLayerSigmet: boolean;
   mapLayerNotam: boolean;
+  mapLayerRadar: boolean;
+  mapLayerClouds: boolean;
+  mapLayerTemp: boolean;
 }
 
 export interface AviationOverlay {

@@ -11,10 +11,10 @@ import {
   upsertLocationWeather,
   upsertNationalReport,
 } from "@/server/repositories/weather-repo";
+import { searchUsLocation } from "@/server/services/geocoding";
 import {
   fetchLocationWeatherFromNws,
   fetchNationalReportFromNws,
-  searchUsLocation,
 } from "@/server/services/nws";
 
 export const opsRouter = createTRPCRouter({

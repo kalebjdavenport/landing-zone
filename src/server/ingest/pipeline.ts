@@ -8,10 +8,15 @@ import {
   upsertNationalReport,
 } from "@/server/repositories/weather-repo";
 import { fetchAviationOverlays } from "@/server/services/aviation";
-import { fetchLocationWeatherFromNws, fetchNationalReportFromNws } from "@/server/services/nws";
+import { fetchLocationWeatherFromNws, fetchNationalReportFromNws, parseWindSpeedKt } from "@/server/services/nws";
 import { severityFromText } from "@/server/services/severity";
 
 import type { TrpcContext } from "@/server/api/trpc";
+import {
+  DEFAULT_SEED_STATIONS,
+  MAX_ALERT_EVENTS_PER_LOCATION,
+  MAX_AVIATION_OVERLAY_EVENTS,
+} from "./constants";
 
 interface IngestResult {
   success: boolean;
@@ -23,11 +28,7 @@ interface IngestResult {
 
 export async function runNwsIngest(
   ctx: TrpcContext,
-  seeds: Array<{ lat: number; lon: number; icao?: string; label?: string }> = [
-    { lat: 33.6367, lon: -84.4281, icao: "KATL", label: "Atlanta" },
-    { lat: 40.6413, lon: -73.7781, icao: "KJFK", label: "New York JFK" },
-    { lat: 38.8512, lon: -77.0402, icao: "KDCA", label: "Washington DCA" },
-  ],
+  seeds: Array<{ lat: number; lon: number; icao?: string; label?: string }> = [...DEFAULT_SEED_STATIONS],
 ): Promise<IngestResult> {
   const fetchedAt = nowIso();
   const errors: string[] = [];
@@ -55,20 +56,23 @@ export async function runNwsIngest(
       const weather = await fetchLocationWeatherFromNws(seed.lat, seed.lon);
       await upsertLocationWeather(ctx.supabase, weather);
       if (seed.icao) {
+        // Approximate flight category from NWS alert severity.
+        // Real METAR-derived categories are preferred when available from aviation ingest;
+        // this heuristic provides a baseline when only NWS data exists.
+        const category = weather.alerts.some((alert) => alert.severity === "high")
+          ? ("IFR" as const)
+          : weather.alerts.some((alert) => alert.severity === "moderate")
+            ? ("MVFR" as const)
+            : ("VFR" as const);
+
         await upsertStationObservation(ctx.supabase, {
           icao: seed.icao,
           label: seed.label ?? `${weather.point.city}, ${weather.point.state}`,
           temperatureF: weather.current.temperatureF,
           visibilityMi: null,
-          windSpeedKt: weather.current.windSpeed
-            ? Number(weather.current.windSpeed.replace(/[^0-9.]/g, "")) || null
-            : null,
+          windSpeedKt: parseWindSpeedKt(weather.current.windSpeed),
           ceilingFt: null,
-          category: weather.alerts.some((alert) => alert.severity === "high")
-            ? "IFR"
-            : weather.alerts.some((alert) => alert.severity === "moderate")
-              ? "MVFR"
-              : "VFR",
+          category,
           observedAt: weather.current.timestamp ?? fetchedAt,
         });
       }
@@ -88,7 +92,7 @@ export async function runNwsIngest(
       });
       events += 1;
 
-      for (const alert of weather.alerts.slice(0, 5)) {
+      for (const alert of weather.alerts.slice(0, MAX_ALERT_EVENTS_PER_LOCATION)) {
         await appendDeltaEvent(ctx.supabase, {
           type: "hazard.updated",
           severity: alert.severity,
@@ -128,7 +132,7 @@ export async function runAviationIngest(ctx: TrpcContext): Promise<IngestResult>
     const previousIds = new Set(previous.map((entry) => entry.id));
 
     let events = 0;
-    for (const overlay of overlays.slice(0, 50)) {
+    for (const overlay of overlays.slice(0, MAX_AVIATION_OVERLAY_EVENTS)) {
       const nextType = previousIds.has(overlay.id) ? "hazard.updated" : "hazard.created";
       await appendDeltaEvent(ctx.supabase, {
         type: nextType,
