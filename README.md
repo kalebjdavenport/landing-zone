@@ -1,132 +1,142 @@
 # Landing Zone
 
-Landing Zone is a dispatcher-focused weather dashboard built for the InfoTrack front-end challenge.
+Landing Zone is a dispatcher-focused weather dashboard that combines National Weather Service alerts and forecasts with aviation overlays (METAR, TAF, SIGMET, NOTAM) into a single operational picture. Built for flight dispatchers who need immediate weather awareness for release decisions, alternate selection, and reroute risk, it surfaces what changed and when through a live delta feed, KPI cards, a route board, and an interactive overlay map.
 
-It uses the **National Weather Service API as the primary weather source**, then enriches decision-making with aviation overlays (METAR/TAF/SIGMET/NOTAM) and a live delta feed.
+![Dashboard screenshot](docs/screenshot.png)
 
-## 1. User Persona
+## Architecture
 
-### Who they are
-Cynthia is an FAA-certified flight dispatcher working a domestic route desk.
+```
+GitHub Actions (every 10 min)
+        |
+        v
++------------------+       +-------------------------+
+| NWS API          |------>|                         |
++------------------+       |  Ingest endpoints       |
+                           |  /api/ingest/nws        |
++------------------+       |  /api/ingest/aviation   |
+| Aviation Weather |------>|                         |
+| Center API       |       +------------+------------+
++------------------+                    |
+                              normalize + upsert
+                                        |
+                                        v
+                              +-------------------+
+                              | Supabase Postgres  |
+                              | + Realtime         |
+                              +--------+----------+
+                                       |
+                          event_log pushes changes
+                                       |
+                                       v
+                              +-------------------+
+                              | tRPC API layer     |
+                              | /api/trpc          |
+                              +--------+----------+
+                                       |
+                                       v
+                              +-------------------+
+                              | React dashboard    |
+                              | (App Router)       |
+                              +-------------------+
+```
 
-### Why weather matters
-Under operational control responsibilities, Cynthia needs immediate weather awareness for release decisions, alternates, and reroute risk.
+A GitHub Actions scheduler triggers ingest endpoints every 10 minutes. The pipeline fetches data from the NWS API and Aviation Weather Center API, normalizes it, and upserts it into Supabase Postgres. Supabase Realtime pushes changes to the frontend via the `event_log` table. tRPC serves data to the React dashboard using React Query for caching and updates.
 
-### At-a-glance vs dig-for details
-At a glance:
-- National alert intensity and severe alert count
-- Route risk and active hazards
-- Staleness timestamp for data reliability
+## Tech Stack
 
-Dig-for details:
-- Localized forecast periods
-- Raw overlay text and individual hazard updates
-- Station-level operational weather values
+| Layer     | Technology                          |
+|-----------|-------------------------------------|
+| Framework | Next.js 16 (App Router)             |
+| API       | tRPC 11 + React Query 5             |
+| Database  | Supabase Postgres + Realtime        |
+| Maps      | MapLibre GL 5                       |
+| Styling   | Tailwind CSS 4 + shadcn primitives  |
+| Testing   | Vitest                              |
 
-### Delight vs friction
-Delight:
-- Instant delta feed when hazards change
-- Overlay toggles to reduce map noise
-- One-screen brief with route context
+## Getting Started
 
-Friction:
-- Generic weather views that hide operational severity
-- Silent refresh failures that erase last-known-good state
+### Prerequisites
 
-## 2. User-Specific Feature
+- Node.js 20+
+- A Supabase project ([create one here](https://supabase.com/dashboard))
 
-### Delta Feed
-A chronologically animated feed shows newly created/updated/expired operational weather events.
+### Install
 
-Why it exists for Cynthia:
-- Dispatch decisions are event-driven; "what changed" matters more than raw weather snapshots.
-
-With more time:
-- Add route-specific acknowledgment workflow
-- Add configurable severity thresholds per route desk
-
-## 3. Why This Visualization
-
-The dashboard uses:
-- KPI cards for national weather posture
-- Route board for station-level operational status
-- Overlay map for spatial hazard awareness
-- Delta feed for temporal change awareness
-
-This communicates operational risk faster than plain tables by pairing **severity + geography + recency**.
-
-## 4. What I Changed and Why
-
-Potential disagreement:
-- A strict "NWS-only" build misses common dispatcher overlays (METAR/TAF/SIGMET/NOTAM).
-
-What I did:
-- Kept NWS as source-of-truth for required core weather flows.
-- Added aviation overlays as optional enrichment with fail-open behavior.
-
-Why:
-- Preserves challenge requirements while matching real dispatch workflows.
-
-## 5. Setup and Running Instructions
-
-1. Install dependencies:
 ```bash
 npm install
 ```
 
-2. Copy environment file:
+### Configure environment
+
 ```bash
 cp .env.example .env.local
 ```
 
-3. Configure Supabase and run the SQL migration in `supabase/migrations/0001_landing_zone.sql`.
+Edit `.env.local` with your values:
 
-4. Start dev server:
+**Supabase (required)**
+
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL, from Project Settings > API |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public anon key, from the same page |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (server-side only), from the same page |
+
+**NWS API (required)**
+
+| Variable | Description |
+|----------|-------------|
+| `NWS_USER_AGENT` | Required by the NWS API to identify callers. Use the format `AppName/1.0 (contact@email.com)` |
+
+**Optional**
+
+| Variable | Description |
+|----------|-------------|
+| `INGEST_INTERNAL_TOKEN` | Bearer token to protect ingest endpoints from unauthorized calls |
+| `WEBHOOK_SIGNING_SECRET` | HMAC secret for webhook signature verification (`x-signature: sha256=<hex>`) |
+
+### Run database migration
+
+Paste the SQL in `supabase/migrations/0001_landing_zone.sql` into the Supabase SQL Editor, or use the Supabase CLI:
+
+```bash
+supabase db push
+```
+
+### Start the dev server
+
 ```bash
 npm run dev
 ```
 
-5. Open [http://localhost:3000](http://localhost:3000)
+Open [http://localhost:3000](http://localhost:3000). Click "Run ingest" in the dashboard to populate initial data.
 
-Optional scheduler for free-tier hosting:
-- Use `.github/workflows/ingest.yml`
-- Set repository secrets:
-  - `INGEST_BASE_URL` (example: `https://your-app.vercel.app`)
-  - `INGEST_TOKEN` (matches `INGEST_INTERNAL_TOKEN`)
+## Optional: Scheduled Ingest
 
-## 6. Tradeoffs and What’s Next
+To keep data fresh on deployed environments, enable the GitHub Actions workflow at `.github/workflows/ingest.yml`. Add these repository secrets:
 
-Assumptions:
-- Single-tenant demo mode (no user auth)
-- Supabase Realtime handles live updates
+| Secret | Value |
+|--------|-------|
+| `INGEST_BASE_URL` | Your deployed app URL (e.g., `https://your-app.vercel.app`) |
+| `INGEST_TOKEN` | Must match the `INGEST_INTERNAL_TOKEN` value in your app's environment |
 
-Tradeoffs:
-- External scheduler needed for frequent ingest on free-tier hosting
-- NOTAM integration currently adapter-friendly and mockable
-
-Next priorities:
-- Route-specific ingest targeting
-- Stronger NOTAM provider integration
-- Expanded test coverage for ingest retries and realtime fanout
-
-## Architecture
-
-- **Frontend:** Next.js App Router, TypeScript, Tailwind, shadcn-style primitives, Magic UI-inspired animated components, MapLibre GL
-- **API:** tRPC (`/api/trpc`)
-- **Data:** Supabase Postgres + Realtime
-- **Ingest:**
-  - `POST /api/ingest/nws`
-  - `POST /api/ingest/aviation`
-  - `POST /api/webhooks/:source`
+The workflow runs every 10 minutes and triggers both NWS and aviation ingest endpoints.
 
 ## Scripts
 
-- `npm run dev` - start development server
-- `npm run build` - production build
-- `npm run start` - run production server
-- `npm run lint` - ESLint
-- `npm run test` - Vitest
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Production build |
+| `npm run start` | Run production server |
+| `npm run lint` | Run ESLint |
+| `npm run test` | Run Vitest |
+
+## Design Decisions
+
+See [docs/DESIGN.md](docs/DESIGN.md) for the user persona, feature rationale, and architectural tradeoffs.
 
 ## NWS-first Behavior
 
-If aviation overlay ingestion fails, the app remains usable using NWS data with stale timestamps and clear status indicators.
+If aviation overlay ingestion fails, the app remains fully usable with NWS data only. Stale timestamps and status indicators keep the dispatcher informed.
