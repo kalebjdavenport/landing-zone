@@ -2,7 +2,7 @@ import { addMinutes, subMinutes } from "date-fns";
 
 import { nowIso } from "@/lib/utils";
 import { severityFromText } from "@/server/services/severity";
-import type { LocationWeather, NationalReport } from "@/server/types";
+import type { FlightCategory, LocationWeather, NationalReport } from "@/server/types";
 
 const NWS_BASE_URL = "https://api.weather.gov";
 const USER_AGENT =
@@ -135,14 +135,86 @@ interface NwsObservationResponse {
     timestamp: string;
     textDescription: string | null;
     temperature: { value: number | null };
+    dewpoint: { value: number | null };
     relativeHumidity: { value: number | null };
     windSpeed: { value: number | null };
     windDirection: { value: number | null };
+    windGust: { value: number | null };
+    visibility: { value: number | null; unitCode: string };
+    barometricPressure: { value: number | null };
+    cloudLayers: Array<{
+      base: { value: number | null };
+      amount: string;
+    }>;
   };
 }
 
 interface NwsObservationStationsResponse {
   features: Array<{ id: string }>;
+}
+
+/** Convert meters to statute miles, rounded to 1 decimal */
+function metersToMiles(m: number | null): number | null {
+  if (m === null) return null;
+  return Math.round((m / 1609.344) * 10) / 10;
+}
+
+/** Convert meters to feet */
+function metersToFeet(m: number | null): number | null {
+  if (m === null) return null;
+  return Math.round(m * 3.28084);
+}
+
+/** Convert Pascals to inches of mercury */
+function pascalsToInHg(pa: number | null): number | null {
+  if (pa === null) return null;
+  return Math.round((pa / 3386.39) * 100) / 100;
+}
+
+/** Convert m/s to knots as a number */
+function msToKnots(ms: number | null): number | null {
+  if (ms === null) return null;
+  return Math.round((ms * MS_TO_KNOTS) / KNOT_ROUNDING) * KNOT_ROUNDING;
+}
+
+/**
+ * Derive ceiling from NWS cloud layers.
+ * Ceiling = lowest BKN (broken) or OVC (overcast) layer base.
+ */
+function extractCeiling(
+  layers: Array<{ base: { value: number | null }; amount: string }> | undefined,
+): number | null {
+  if (!layers) return null;
+  for (const layer of layers) {
+    const amt = layer.amount?.toUpperCase();
+    if ((amt === "BKN" || amt === "OVC" || amt === "VV") && layer.base.value !== null) {
+      return metersToFeet(layer.base.value);
+    }
+  }
+  return null;
+}
+
+/**
+ * Compute flight category from ceiling (ft) and visibility (mi).
+ * Standard FAA thresholds:
+ *   LIFR: ceiling < 500 ft OR visibility < 1 mi
+ *   IFR:  ceiling 500–999 ft OR visibility 1–2.9 mi
+ *   MVFR: ceiling 1000–2999 ft OR visibility 3–4.9 mi
+ *   VFR:  ceiling >= 3000 ft AND visibility >= 5 mi
+ */
+export function computeFlightCategory(
+  ceilingFt: number | null,
+  visibilityMi: number | null,
+): FlightCategory {
+  if (ceilingFt === null && visibilityMi === null) return "UNKNOWN";
+
+  const c = ceilingFt ?? Infinity;
+  const v = visibilityMi ?? Infinity;
+
+  if (c < 500 || v < 1) return "LIFR";
+  if (c < 1000 || v < 3) return "IFR";
+  if (c < 3000 || v < 5) return "MVFR";
+  return "VFR";
 }
 
 function formatWindSpeed(windSpeedMs: number | null): string | null {
@@ -294,6 +366,12 @@ export async function fetchLocationWeatherFromNws(
   const firstPeriod = forecastResponse.properties.periods[0] ?? null;
   const obsWind = formatWindSpeed(latestObservation?.properties.windSpeed.value ?? null);
   const obsCondition = latestObservation?.properties.textDescription ?? null;
+  const obsProps = latestObservation?.properties;
+
+  const visibilityMi = metersToMiles(obsProps?.visibility?.value ?? null);
+  const ceilingFt = extractCeiling(obsProps?.cloudLayers);
+  const windSpeedKt = msToKnots(obsProps?.windSpeed?.value ?? null);
+  const windGustKt = msToKnots(obsProps?.windGust?.value ?? null);
 
   return {
     point: {
@@ -310,14 +388,23 @@ export async function fetchLocationWeatherFromNws(
     },
     current: {
       temperatureF: celsiusToFahrenheit(
-        parseNumber(latestObservation?.properties.temperature.value ?? null),
+        parseNumber(obsProps?.temperature?.value ?? null),
+      ),
+      dewpointF: celsiusToFahrenheit(
+        parseNumber(obsProps?.dewpoint?.value ?? null),
       ),
       windSpeed: obsWind ?? firstPeriod?.windSpeed ?? "Calm",
-      windDirection: formatWindDirection(latestObservation?.properties.windDirection.value)
+      windSpeedKt,
+      windDirection: formatWindDirection(obsProps?.windDirection?.value)
         ?? firstPeriod?.windDirection ?? null,
+      windGustKt,
       textDescription: obsCondition ?? firstPeriod?.shortForecast ?? "No data",
-      relativeHumidity: parseNumber(latestObservation?.properties.relativeHumidity.value ?? null),
-      timestamp: latestObservation?.properties.timestamp ?? null,
+      visibilityMi,
+      ceilingFt,
+      flightCategory: computeFlightCategory(ceilingFt, visibilityMi),
+      altimeterInHg: pascalsToInHg(obsProps?.barometricPressure?.value ?? null),
+      relativeHumidity: parseNumber(obsProps?.relativeHumidity?.value ?? null),
+      timestamp: obsProps?.timestamp ?? null,
     },
     forecast: forecastResponse.properties.periods.slice(0, FORECAST_PERIOD_LIMIT),
     alerts: alertsResponse.features.map((feature) => ({
