@@ -13,13 +13,22 @@ export interface NwsLocationPoint {
   stationUrl: string;
 }
 
+export type FlightCategory = "VFR" | "MVFR" | "IFR" | "LIFR" | "UNKNOWN";
+
 export interface LocationWeather {
   point: NwsLocationPoint;
   current: {
     temperatureF: number | null;
+    dewpointF: number | null;
     windSpeed: string;
+    windSpeedKt: number | null;
     windDirection: string | null;
+    windGustKt: number | null;
     textDescription: string;
+    visibilityMi: number | null;
+    ceilingFt: number | null;
+    flightCategory: FlightCategory;
+    altimeterInHg: number | null;
     relativeHumidity: number | null;
     timestamp: string | null;
   };

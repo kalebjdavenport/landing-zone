@@ -14,6 +14,7 @@ import { SearchBar } from "@/components/dashboard/search-bar";
 import { SystemDiagram } from "@/components/dashboard/system-diagram";
 import { ViewNav } from "@/components/dashboard/view-nav";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRealtimeFeed } from "@/hooks/use-realtime-feed";
 import { useUrlSync } from "@/hooks/use-url-sync";
@@ -115,36 +116,83 @@ export function AppDashboard() {
           <>
             <section>
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">National Overview</h2>
-              {nationalReport.isLoading || !nationalReport.data ? (
+              {nationalReport.isLoading ? (
                 <Skeleton className="h-52 w-full" />
-              ) : (
+              ) : nationalReport.isError ? (
+                <Card className="p-6 text-center">
+                  <p className="text-sm text-slate-500">Unable to load national report.</p>
+                  <button onClick={() => nationalReport.refetch()} className="mt-2 text-sm text-cyan-600 hover:underline cursor-pointer">
+                    Try again
+                  </button>
+                </Card>
+              ) : nationalReport.data ? (
                 <NationalReportCard report={nationalReport.data} />
-              )}
+              ) : null}
             </section>
 
             <section>
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Route Board</h2>
-              {dispatcherBoard.data ? (
-                <RouteBoardCard board={dispatcherBoard.data} />
-              ) : (
+              {dispatcherBoard.isLoading ? (
                 <Skeleton className="h-96 w-full" />
-              )}
+              ) : dispatcherBoard.isError ? (
+                <Card className="p-6 text-center">
+                  <p className="text-sm text-slate-500">Unable to load route board.</p>
+                  <button onClick={() => dispatcherBoard.refetch()} className="mt-2 text-sm text-cyan-600 hover:underline cursor-pointer">
+                    Try again
+                  </button>
+                </Card>
+              ) : dispatcherBoard.data ? (
+                <RouteBoardCard board={dispatcherBoard.data} />
+              ) : null}
             </section>
 
             <section>
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Location Details</h2>
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                <LocationWeatherCard weather={locationWeather.data ?? null} label={locationLabel} />
-                <OverlayMapPanel
-                  overlays={overlays.data ?? []}
-                  center={chosenCenter}
-                />
+                {locationWeather.isLoading ? (
+                  <Skeleton className="h-52 w-full" />
+                ) : locationWeather.isError ? (
+                  <Card className="p-6 text-center">
+                    <p className="text-sm text-slate-500">Unable to load location weather.</p>
+                    <button onClick={() => locationWeather.refetch()} className="mt-2 text-sm text-cyan-600 hover:underline cursor-pointer">
+                      Try again
+                    </button>
+                  </Card>
+                ) : (
+                  <LocationWeatherCard weather={locationWeather.data ?? null} label={locationLabel} />
+                )}
+                {overlays.isLoading ? (
+                  <Skeleton className="h-52 w-full" />
+                ) : overlays.isError ? (
+                  <Card className="p-6 text-center">
+                    <p className="text-sm text-slate-500">Unable to load aviation overlays.</p>
+                    <button onClick={() => overlays.refetch()} className="mt-2 text-sm text-cyan-600 hover:underline cursor-pointer">
+                      Try again
+                    </button>
+                  </Card>
+                ) : (
+                  <OverlayMapPanel
+                    overlays={overlays.data ?? []}
+                    center={chosenCenter}
+                  />
+                )}
               </div>
             </section>
 
             <section>
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Live Changes</h2>
-              <DeltaFeedCard items={deltaFeed.data ?? []} />
+              {deltaFeed.isLoading ? (
+                <Skeleton className="h-52 w-full" />
+              ) : deltaFeed.isError ? (
+                <Card className="p-6 text-center">
+                  <p className="text-sm text-slate-500">Unable to load live changes.</p>
+                  <button onClick={() => deltaFeed.refetch()} className="mt-2 text-sm text-cyan-600 hover:underline cursor-pointer">
+                    Try again
+                  </button>
+                </Card>
+              ) : (
+                <DeltaFeedCard items={deltaFeed.data ?? []} />
+              )}
             </section>
           </>
         ) : (
