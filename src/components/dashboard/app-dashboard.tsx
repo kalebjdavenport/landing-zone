@@ -118,7 +118,7 @@ export function AppDashboard() {
 
         {view === "operations" ? (
           <>
-            <section aria-label="National Overview">
+            <section aria-label="National Overview" tabIndex={0} className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2">
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">National Overview</h2>
               <div aria-live="polite" aria-atomic="true">
                 {nationalReport.isLoading ? (
@@ -136,7 +136,7 @@ export function AppDashboard() {
               </div>
             </section>
 
-            <section aria-label="Route Board">
+            <section aria-label="Route Board" tabIndex={0} className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2">
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Route Board</h2>
               <div aria-live="polite" aria-atomic="true">
                 {dispatcherBoard.isLoading ? (
@@ -155,7 +155,7 @@ export function AppDashboard() {
             </section>
 
             {/* ── Weather Map — primary visualization ── */}
-            <section aria-label="Weather Map">
+            <section aria-label="Weather Map" tabIndex={0} className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2">
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Weather Map</h2>
               <div aria-live="polite" aria-atomic="true">
                 {overlays.isLoading ? (
@@ -177,7 +177,7 @@ export function AppDashboard() {
             </section>
 
             {/* ── Location details + Live changes side by side ── */}
-            <section aria-label="Location details and live changes">
+            <section aria-label="Location details and live changes" tabIndex={0} className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2">
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                 <div>
                   <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Location Details</h2>
@@ -217,7 +217,7 @@ export function AppDashboard() {
             </section>
           </>
         ) : (
-          <section className="space-y-4">
+          <section aria-label="System architecture" tabIndex={0} className="space-y-4 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2">
             <SystemDiagram />
             <ArchitectureSimulator />
           </section>

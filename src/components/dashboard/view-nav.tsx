@@ -42,7 +42,6 @@ export function ViewNav({ value, onChange }: ViewNavProps) {
             type="button"
             role="tab"
             aria-selected={isActive}
-            tabIndex={isActive ? 0 : -1}
             className={cn(
               "flex cursor-pointer items-center gap-1.5 border-b-2 px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2",
               isActive
