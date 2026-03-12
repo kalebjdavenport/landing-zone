@@ -320,3 +320,22 @@ export const US_AIRPORTS: Airport[] = [
   { icao: "TIST", iata: "STT", name: "Cyril E. King", city: "Charlotte Amalie", state: "VI", lat: 18.3373, lon: -64.9734 },
   { icao: "TISX", iata: "STX", name: "Henry E. Rohlsen", city: "Christiansted", state: "VI", lat: 17.7019, lon: -64.7986 },
 ];
+
+/** Find the closest airport within ~0.1 degrees (~11 km). Returns null if none. */
+export function findAirportByCoords(lat: number, lon: number): Airport | null {
+  const THRESHOLD = 0.1;
+  let best: Airport | null = null;
+  let bestDist = Infinity;
+  for (const a of US_AIRPORTS) {
+    const d = Math.abs(a.lat - lat) + Math.abs(a.lon - lon);
+    if (d < bestDist && d < THRESHOLD) {
+      bestDist = d;
+      best = a;
+    }
+  }
+  return best;
+}
+
+export function formatAirportLabel(a: Airport): string {
+  return `${a.icao} — ${a.name}, ${a.city}, ${a.state}`;
+}

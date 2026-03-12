@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { CloudUpload, Loader2 } from "lucide-react";
 
 import { GridBackground } from "@/components/magicui/grid-background";
@@ -25,23 +25,40 @@ export function AppDashboard() {
   const setView = useDashboardStore((s) => s.setView);
   const routeId = useDashboardStore((s) => s.routeId);
   const selectedLocation = useDashboardStore((s) => s.selectedLocation);
-  const overlayState = useDashboardStore((s) => s.overlayState);
-  const setOverlayState = useDashboardStore((s) => s.setOverlayState);
-
+  const locationLabel = useDashboardStore((s) => s.locationLabel);
   useUrlSync();
   useRealtimeFeed(routeId);
 
   const nationalReport = trpc.ops.getNationalReport.useQuery();
   const dispatcherBoard = trpc.ops.getDispatcherBoard.useQuery({ routeId });
   const deltaFeed = trpc.ops.getDeltaFeed.useQuery({});
-  const overlays = trpc.ops.getAviationOverlays.useQuery();
+  const overlays = trpc.ops.getAviationOverlays.useQuery(
+    selectedLocation ? { lat: selectedLocation.lat, lon: selectedLocation.lon } : undefined,
+  );
 
   const locationWeather = trpc.ops.getLocationWeather.useQuery(
     selectedLocation!,
     { enabled: selectedLocation !== null },
   );
 
-  const ingestMutation = trpc.ops.runIngestNow.useMutation();
+  const utils = trpc.useUtils();
+  const ingestMutation = trpc.ops.runIngestNow.useMutation({
+    onSuccess: () => utils.ops.invalidate(),
+  });
+
+  // Auto-run ingest on first load when the delta feed is empty
+  const didAutoIngest = useRef(false);
+  useEffect(() => {
+    if (
+      !didAutoIngest.current &&
+      deltaFeed.isFetched &&
+      deltaFeed.data?.length === 0 &&
+      !ingestMutation.isPending
+    ) {
+      didAutoIngest.current = true;
+      ingestMutation.mutate({ source: "all" });
+    }
+  }, [deltaFeed.isFetched, deltaFeed.data?.length, ingestMutation]);
 
   const chosenCenter = useMemo(() => {
     return {
@@ -117,12 +134,10 @@ export function AppDashboard() {
             <section>
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Location Details</h2>
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                <LocationWeatherCard weather={locationWeather.data ?? null} />
+                <LocationWeatherCard weather={locationWeather.data ?? null} label={locationLabel} />
                 <OverlayMapPanel
                   overlays={overlays.data ?? []}
                   center={chosenCenter}
-                  state={overlayState}
-                  onStateChange={setOverlayState}
                 />
               </div>
             </section>

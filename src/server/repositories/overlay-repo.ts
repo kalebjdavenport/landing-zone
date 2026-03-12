@@ -6,11 +6,39 @@ import { memory } from "./memory-store";
 
 type SupabaseClient = NonNullable<TrpcContext["supabase"]>;
 
+/** How long cached overlays are considered fresh (ms). */
+const STALE_AFTER_MS = 10 * 60 * 1000; // 10 minutes
+
+/** In-memory timestamp of last successful replace. */
+let lastFetchedAt: number = 0;
+
+/** Center used for the most recent fetch (for location-change detection). */
+let lastCenter: { lat: number; lon: number } | undefined;
+
+/**
+ * True when overlay data is missing, older than STALE_AFTER_MS,
+ * or the requested center has moved more than 1° from the last fetch.
+ */
+export function overlaysAreStale(center?: { lat: number; lon: number }): boolean {
+  if (memory.overlays.length === 0) return true;
+  if (Date.now() - lastFetchedAt > STALE_AFTER_MS) return true;
+  if (center && lastCenter) {
+    if (Math.abs(center.lat - lastCenter.lat) > 1 || Math.abs(center.lon - lastCenter.lon) > 1) {
+      return true;
+    }
+  }
+  if (center && !lastCenter) return true;
+  return false;
+}
+
 export async function replaceAviationOverlays(
   supabase: SupabaseClient | null,
   overlays: AviationOverlay[],
+  center?: { lat: number; lon: number },
 ) {
   memory.overlays = overlays;
+  lastFetchedAt = Date.now();
+  lastCenter = center;
 
   if (!supabase) {
     return;

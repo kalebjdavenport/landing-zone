@@ -8,9 +8,12 @@ import {
   getLocationWeather,
   getNationalReport,
   listAviationOverlays,
+  overlaysAreStale,
+  replaceAviationOverlays,
   upsertLocationWeather,
   upsertNationalReport,
 } from "@/server/repositories/weather-repo";
+import { fetchAviationOverlays } from "@/server/services/aviation";
 import { searchUsLocation } from "@/server/services/geocoding";
 import {
   fetchLocationWeatherFromNws,
@@ -79,9 +82,31 @@ export const opsRouter = createTRPCRouter({
       return getDeltaFeed(ctx.supabase, input.since);
     }),
 
-  getAviationOverlays: publicProcedure.query(async ({ ctx }) => {
-    return listAviationOverlays(ctx.supabase);
-  }),
+  getAviationOverlays: publicProcedure
+    .input(
+      z
+        .object({
+          lat: z.number().gte(18).lte(72).optional(),
+          lon: z.number().gte(-170).lte(-60).optional(),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const center =
+        input?.lat != null && input?.lon != null
+          ? { lat: input.lat, lon: input.lon }
+          : undefined;
+
+      // Return cached data if fresh and location hasn't moved
+      if (!overlaysAreStale(center)) {
+        return listAviationOverlays(ctx.supabase);
+      }
+
+      // Auto-fetch from AWC, scoped to location when provided
+      const fresh = await fetchAviationOverlays(center);
+      await replaceAviationOverlays(ctx.supabase, fresh, center);
+      return fresh;
+    }),
 
   runIngestNow: publicProcedure
     .input(

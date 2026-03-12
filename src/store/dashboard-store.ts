@@ -42,9 +42,9 @@ const DEFAULT_OVERLAY: OverlayStateInput = {
 export const useDashboardStore = create<DashboardStore>()(
   persist(
     (set) => ({
-      // Location
-      selectedLocation: { lat: 40.6413, lon: -73.7781 },
-      locationLabel: "KJFK — John F Kennedy International, New York, NY",
+      // Location — null until the user searches; persisted across sessions
+      selectedLocation: null,
+      locationLabel: null,
       setLocation: (lat, lon, label) =>
         set({ selectedLocation: { lat, lon }, locationLabel: label }),
       clearLocation: () =>
@@ -68,8 +68,10 @@ export const useDashboardStore = create<DashboardStore>()(
     }),
     {
       name: "dashboard-prefs",
-      partialize: (state): Pick<DashboardStore, "overlayState"> => ({
+      partialize: (state): Pick<DashboardStore, "overlayState" | "selectedLocation" | "locationLabel"> => ({
         overlayState: state.overlayState,
+        selectedLocation: state.selectedLocation,
+        locationLabel: state.locationLabel,
       }),
     },
   ),

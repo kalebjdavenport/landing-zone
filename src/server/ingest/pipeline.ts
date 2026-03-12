@@ -121,13 +121,16 @@ export async function runNwsIngest(
   };
 }
 
-export async function runAviationIngest(ctx: TrpcContext): Promise<IngestResult> {
+export async function runAviationIngest(
+  ctx: TrpcContext,
+  center?: { lat: number; lon: number },
+): Promise<IngestResult> {
   const fetchedAt = nowIso();
   const errors: string[] = [];
 
   try {
     const previous = await listAviationOverlays(ctx.supabase);
-    const overlays = await fetchAviationOverlays();
+    const overlays = await fetchAviationOverlays(center);
     await replaceAviationOverlays(ctx.supabase, overlays);
     const previousIds = new Set(previous.map((entry) => entry.id));
 

@@ -117,6 +117,7 @@ interface NwsPointsResponse {
 interface NwsForecastResponse {
   properties: {
     periods: Array<{
+      name: string;
       startTime: string;
       endTime: string;
       temperature: number;
@@ -275,9 +276,24 @@ export async function fetchLocationWeatherFromNws(
     nwsFetch<NwsAlertsResponse>(`/alerts/active?point=${lat},${lon}`),
   ]);
 
-  const latestObservation = stationResponse.features[0]?.id
-    ? await fetchLatestObservation(stationResponse.features[0].id)
-    : null;
+  // Try up to 3 stations to find one with complete observation data.
+  let latestObservation: NwsObservationResponse | null = null;
+  for (const station of stationResponse.features.slice(0, 3)) {
+    if (!station.id) continue;
+    const obs = await fetchLatestObservation(station.id);
+    if (obs) {
+      latestObservation = obs;
+      // Accept if we have at least wind or temperature
+      if (obs.properties.windSpeed.value != null || obs.properties.temperature.value != null) {
+        break;
+      }
+    }
+  }
+
+  // Fall back to the first forecast period for wind/condition when observation is sparse.
+  const firstPeriod = forecastResponse.properties.periods[0] ?? null;
+  const obsWind = formatWindSpeed(latestObservation?.properties.windSpeed.value ?? null);
+  const obsCondition = latestObservation?.properties.textDescription ?? null;
 
   return {
     point: {
@@ -296,9 +312,10 @@ export async function fetchLocationWeatherFromNws(
       temperatureF: celsiusToFahrenheit(
         parseNumber(latestObservation?.properties.temperature.value ?? null),
       ),
-      windSpeed: formatWindSpeed(latestObservation?.properties.windSpeed.value ?? null),
-      windDirection: formatWindDirection(latestObservation?.properties.windDirection.value),
-      textDescription: latestObservation?.properties.textDescription ?? null,
+      windSpeed: obsWind ?? firstPeriod?.windSpeed ?? "Calm",
+      windDirection: formatWindDirection(latestObservation?.properties.windDirection.value)
+        ?? firstPeriod?.windDirection ?? null,
+      textDescription: obsCondition ?? firstPeriod?.shortForecast ?? "No data",
       relativeHumidity: parseNumber(latestObservation?.properties.relativeHumidity.value ?? null),
       timestamp: latestObservation?.properties.timestamp ?? null,
     },

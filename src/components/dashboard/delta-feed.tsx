@@ -1,6 +1,17 @@
 "use client";
 
-import { ActivitySquare, Clock3 } from "lucide-react";
+import { useMemo } from "react";
+import {
+  ActivitySquare,
+  AlertTriangle,
+  Clock3,
+  CloudLightning,
+  Loader2,
+  MapPin,
+  Plane,
+  Radio,
+  RefreshCw,
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 import { severityBadgeVariant } from "@/components/dashboard/severity";
@@ -8,38 +19,129 @@ import { AnimatedList } from "@/components/magicui/animated-list";
 import { ShineBorder } from "@/components/magicui/shine-border";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { DeltaFeedItem } from "@/server/types";
+import { trpc } from "@/lib/trpc/client";
+import type { DeltaFeedItem, Severity } from "@/server/types";
+
+const MAX_ITEMS = 10;
+
+const SEVERITY_RANK: Record<Severity, number> = {
+  extreme: 0,
+  high: 1,
+  moderate: 2,
+  low: 3,
+};
+
+const TYPE_LABELS: Record<DeltaFeedItem["type"], string> = {
+  "hazard.created": "New Hazard",
+  "hazard.updated": "Hazard Update",
+  "hazard.expired": "Hazard Expired",
+  "observation.updated": "Observation",
+  "briefing.updated": "Briefing",
+};
+
+function typeIcon(type: DeltaFeedItem["type"]) {
+  switch (type) {
+    case "hazard.created":
+    case "hazard.updated":
+      return <AlertTriangle className="h-3.5 w-3.5" />;
+    case "hazard.expired":
+      return <CloudLightning className="h-3.5 w-3.5" />;
+    case "observation.updated":
+      return <Radio className="h-3.5 w-3.5" />;
+    case "briefing.updated":
+      return <Plane className="h-3.5 w-3.5" />;
+  }
+}
+
+function formatLocation(key: string | null): string | null {
+  if (!key) return null;
+  // locationKey is "lat,lon" — display as coords if nothing better
+  const parts = key.split(",");
+  if (parts.length === 2) {
+    return `${parseFloat(parts[0]).toFixed(2)}°, ${parseFloat(parts[1]).toFixed(2)}°`;
+  }
+  return key;
+}
+
+/** Sort by severity (extreme first), then by recency within each tier. */
+function prioritize(items: DeltaFeedItem[]): DeltaFeedItem[] {
+  return [...items].sort((a, b) => {
+    const sev = SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];
+    if (sev !== 0) return sev;
+    return new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime();
+  });
+}
 
 export function DeltaFeedCard({ items }: { items: DeltaFeedItem[] }) {
+  const prioritized = useMemo(() => prioritize(items).slice(0, MAX_ITEMS), [items]);
+
+  const utils = trpc.useUtils();
+  const ingest = trpc.ops.runIngestNow.useMutation({
+    onSuccess: () => utils.ops.invalidate(),
+  });
+
   return (
     <Card className="relative overflow-hidden">
       <ShineBorder />
-      <CardHeader>
-        <CardTitle className="inline-flex items-center gap-2">
-          <ActivitySquare className="h-4 w-4" />
-          Delta Feed
-        </CardTitle>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="inline-flex items-center gap-2">
+            <ActivitySquare className="h-4 w-4" />
+            Delta Feed
+          </CardTitle>
+          <button
+            type="button"
+            onClick={() => ingest.mutate({ source: "all" })}
+            disabled={ingest.isPending}
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {ingest.isPending ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3 w-3" />
+            )}
+            {ingest.isPending ? "Refreshing…" : "Refresh"}
+          </button>
+        </div>
+        <p className="text-xs text-slate-500">
+          Top {MAX_ITEMS} weather changes by severity, then recency.
+        </p>
       </CardHeader>
       <CardContent>
-        {items.length ? (
+        {prioritized.length ? (
           <AnimatedList
-            items={items.slice(0, 30)}
+            items={prioritized}
             getKey={(item) => item.id}
             renderItem={(item) => (
               <article className="rounded-lg border border-slate-200 bg-white/80 p-3">
                 <div className="flex items-center justify-between gap-2">
-                  <Badge variant={severityBadgeVariant(item.severity)}>{item.type}</Badge>
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant={severityBadgeVariant(item.severity)}>
+                      <span className="inline-flex items-center gap-1">
+                        {typeIcon(item.type)}
+                        {TYPE_LABELS[item.type]}
+                      </span>
+                    </Badge>
+                  </div>
                   <span className="inline-flex items-center gap-1 text-xs text-slate-500">
                     <Clock3 className="h-3 w-3" />
                     {formatDistanceToNow(new Date(item.occurredAt), { addSuffix: true })}
                   </span>
                 </div>
-                <p className="mt-2 text-sm text-slate-700">{item.summary}</p>
+                <p className="mt-1.5 text-sm text-slate-700">{item.summary}</p>
+                {item.locationKey && (
+                  <span className="mt-1 inline-flex items-center gap-1 text-xs text-slate-400">
+                    <MapPin className="h-3 w-3" />
+                    {formatLocation(item.locationKey)}
+                  </span>
+                )}
               </article>
             )}
           />
         ) : (
-          <p className="text-sm text-slate-600">No recent deltas yet. Trigger ingest to populate updates.</p>
+          <p className="text-sm text-slate-600">
+            No recent changes. Ingest will run automatically to populate this feed.
+          </p>
         )}
       </CardContent>
     </Card>

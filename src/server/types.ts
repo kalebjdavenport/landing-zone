@@ -17,13 +17,14 @@ export interface LocationWeather {
   point: NwsLocationPoint;
   current: {
     temperatureF: number | null;
-    windSpeed: string | null;
+    windSpeed: string;
     windDirection: string | null;
-    textDescription: string | null;
+    textDescription: string;
     relativeHumidity: number | null;
     timestamp: string | null;
   };
   forecast: Array<{
+    name: string;
     startTime: string;
     endTime: string;
     temperature: number;
