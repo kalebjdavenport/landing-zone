@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { CloudUpload, Loader2 } from "lucide-react";
 
 import { GridBackground } from "@/components/magicui/grid-background";
@@ -76,6 +76,11 @@ export function AppDashboard() {
     selectedLocation?.lon,
   ]);
 
+  const topRef = useRef<HTMLInputElement>(null);
+  const loopToTop = useCallback(() => {
+    topRef.current?.focus();
+  }, []);
+
   return (
     <main id="main-content" className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-100 via-cyan-50 to-emerald-100">
       <GridBackground />
@@ -88,7 +93,7 @@ export function AppDashboard() {
             <h1 className="text-lg font-bold tracking-tight text-white">Landing&nbsp;Zone</h1>
           </div>
 
-          <SearchBar />
+          <SearchBar ref={topRef} />
 
           {/* Actions */}
           <Button
@@ -222,6 +227,11 @@ export function AppDashboard() {
             <ArchitectureSimulator />
           </section>
         )}
+      </div>
+
+      {/* Focus sentinel — loops tab back to the search bar */}
+      <div tabIndex={0} onFocus={loopToTop} className="sr-only" aria-hidden="true">
+        End of content
       </div>
     </main>
   );
