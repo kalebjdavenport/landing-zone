@@ -8,7 +8,7 @@ import {
   upsertNationalReport,
 } from "@/server/repositories/weather-repo";
 import { fetchAviationOverlays } from "@/server/services/aviation";
-import { fetchLocationWeatherFromNws, fetchNationalReportFromNws, parseWindSpeedKt } from "@/server/services/nws";
+import { fetchLocationWeatherFromNws, fetchNationalReportFromNws } from "@/server/services/nws";
 import { severityFromText } from "@/server/services/severity";
 
 import type { TrpcContext } from "@/server/api/trpc";
@@ -56,23 +56,14 @@ export async function runNwsIngest(
       const weather = await fetchLocationWeatherFromNws(seed.lat, seed.lon);
       await upsertLocationWeather(ctx.supabase, weather);
       if (seed.icao) {
-        // Approximate flight category from NWS alert severity.
-        // Real METAR-derived categories are preferred when available from aviation ingest;
-        // this heuristic provides a baseline when only NWS data exists.
-        const category = weather.alerts.some((alert) => alert.severity === "high")
-          ? ("IFR" as const)
-          : weather.alerts.some((alert) => alert.severity === "moderate")
-            ? ("MVFR" as const)
-            : ("VFR" as const);
-
         await upsertStationObservation(ctx.supabase, {
           icao: seed.icao,
           label: seed.label ?? `${weather.point.city}, ${weather.point.state}`,
           temperatureF: weather.current.temperatureF,
-          visibilityMi: null,
-          windSpeedKt: parseWindSpeedKt(weather.current.windSpeed),
-          ceilingFt: null,
-          category,
+          visibilityMi: weather.current.visibilityMi,
+          windSpeedKt: weather.current.windSpeedKt,
+          ceilingFt: weather.current.ceilingFt,
+          category: weather.current.flightCategory,
           observedAt: weather.current.timestamp ?? fetchedAt,
         });
       }

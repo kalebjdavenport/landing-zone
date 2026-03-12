@@ -1,9 +1,9 @@
 "use client";
 
-import { Database, RadioTower, RefreshCcw, Server, SatelliteDish, Sparkles } from "lucide-react";
+import { Database, RadioTower, Server, SatelliteDish, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,315 +12,210 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
 type SourceKind = "NWS" | "Aviation";
-type TriggerKind = "manual" | "poller";
-type FlowStatus = "running" | "complete";
 
-interface FlowEvent {
+interface RunEntry {
   id: number;
   source: SourceKind;
-  trigger: TriggerKind;
-  stage: number;
-  status: FlowStatus;
   startedAt: string;
+  done: boolean;
 }
-
-interface FlowMetrics {
-  ingests: number;
-  dbWrites: number;
-  websocketPushes: number;
-  uiRefreshes: number;
-}
-
-const AUTO_POLL_INTERVAL_MS = 10000;
-const FLOW_STEP_MS = 700;
 
 const STAGES = [
-  {
-    title: "1. Pull APIs",
-    description: "NWS/AWC are queried by the server",
-    icon: SatelliteDish,
-  },
-  {
-    title: "2. Ingest",
-    description: "Normalize, score, and map records",
-    icon: Server,
-  },
-  {
-    title: "3. Postgres",
-    description: "Write snapshots + event_log",
-    icon: Database,
-  },
-  {
-    title: "4. WebSocket",
-    description: "Supabase Realtime broadcasts insert",
-    icon: RadioTower,
-  },
-  {
-    title: "5. UI Refresh",
-    description: "tRPC queries invalidate and rerender",
-    icon: Sparkles,
-  },
+  { label: "Fetch", desc: "NWS + AWC APIs", icon: SatelliteDish },
+  { label: "Normalize", desc: "Parse & score severity", icon: Server },
+  { label: "Persist", desc: "Postgres upsert + event_log", icon: Database },
+  { label: "Push", desc: "Realtime broadcast", icon: RadioTower },
+  { label: "Refresh", desc: "tRPC invalidate → rerender", icon: Sparkles },
 ] as const;
 
-const LAST_STAGE_INDEX = STAGES.length - 1;
+const STEP_MS = 1400;
+const AUTO_INTERVAL_MS = 12_000;
+const MAX_HISTORY = 5;
 
 export function ArchitectureSimulator() {
-  const [events, setEvents] = useState<FlowEvent[]>([]);
+  const [activeStage, setActiveStage] = useState<number | null>(null);
+  const [activeSource, setActiveSource] = useState<SourceKind | null>(null);
+  const [history, setHistory] = useState<RunEntry[]>([]);
   const [autoPoll, setAutoPoll] = useState(true);
-  const [metrics, setMetrics] = useState<FlowMetrics>({
-    ingests: 0,
-    dbWrites: 0,
-    websocketPushes: 0,
-    uiRefreshes: 0,
-  });
-
   const counterRef = useRef(0);
-  const timersRef = useRef<Set<number>>(new Set());
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const activeEvent = useMemo(
-    () => events.find((item) => item.status === "running") ?? null,
-    [events],
-  );
-
-  const clearAllTimers = useCallback(() => {
-    for (const timer of timersRef.current) {
-      window.clearTimeout(timer);
-      window.clearInterval(timer);
+  const clearTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
     }
-    timersRef.current.clear();
   }, []);
 
-  const scheduleTimeout = useCallback((callback: () => void, delayMs: number) => {
-    const timeoutId = window.setTimeout(() => {
-      timersRef.current.delete(timeoutId);
-      callback();
-    }, delayMs);
+  const runFlow = useCallback((source: SourceKind) => {
+    if (activeStage !== null) return;
 
-    timersRef.current.add(timeoutId);
+    const id = ++counterRef.current;
+    const startedAt = new Date().toISOString();
+
+    setActiveSource(source);
+    setActiveStage(0);
+    setHistory((prev) => [{ id, source, startedAt, done: false }, ...prev].slice(0, MAX_HISTORY));
+
+    let step = 0;
+    const advance = () => {
+      step += 1;
+      if (step < STAGES.length) {
+        setActiveStage(step);
+        timerRef.current = setTimeout(advance, STEP_MS);
+      } else {
+        timerRef.current = setTimeout(() => {
+          setActiveStage(null);
+          setActiveSource(null);
+          setHistory((prev) =>
+            prev.map((r) => (r.id === id ? { ...r, done: true } : r)),
+          );
+        }, STEP_MS);
+      }
+    };
+    timerRef.current = setTimeout(advance, STEP_MS);
+  }, [activeStage]);
+
+  // Auto-poll alternates between NWS and Aviation
+  useEffect(() => {
+    if (!autoPoll) return;
+    let tick = 0;
+    const id = setInterval(() => {
+      runFlow(tick % 2 === 0 ? "NWS" : "Aviation");
+      tick += 1;
+    }, AUTO_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [autoPoll, runFlow]);
+
+  // Kick off one run on mount
+  useEffect(() => {
+    const id = setTimeout(() => runFlow("NWS"), 600);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const launchFlow = useCallback(
-    (source: SourceKind, trigger: TriggerKind) => {
-      const id = counterRef.current + 1;
-      counterRef.current = id;
+  useEffect(() => () => clearTimer(), [clearTimer]);
 
-      const startedAt = new Date().toISOString();
-
-      setMetrics((previous) => ({
-        ...previous,
-        ingests: previous.ingests + 1,
-      }));
-
-      setEvents((previous) => {
-        const next: FlowEvent = {
-          id,
-          source,
-          trigger,
-          stage: 0,
-          status: "running",
-          startedAt,
-        };
-
-        return [next, ...previous].slice(0, 14);
-      });
-
-      const advance = (stageIndex: number) => {
-        setEvents((previous) =>
-          previous.map((item) =>
-            item.id === id
-              ? {
-                  ...item,
-                  stage: stageIndex,
-                  status: stageIndex >= LAST_STAGE_INDEX ? "complete" : "running",
-                }
-              : item,
-          ),
-        );
-
-        if (stageIndex === 2) {
-          setMetrics((previous) => ({
-            ...previous,
-            dbWrites: previous.dbWrites + 1,
-          }));
-        }
-
-        if (stageIndex === 3) {
-          setMetrics((previous) => ({
-            ...previous,
-            websocketPushes: previous.websocketPushes + 1,
-          }));
-        }
-
-        if (stageIndex === 4) {
-          setMetrics((previous) => ({
-            ...previous,
-            uiRefreshes: previous.uiRefreshes + 1,
-          }));
-        }
-
-        if (stageIndex < LAST_STAGE_INDEX) {
-          scheduleTimeout(() => advance(stageIndex + 1), FLOW_STEP_MS);
-        }
-      };
-
-      advance(0);
-    },
-    [scheduleTimeout],
-  );
-
-  useEffect(() => {
-    if (!autoPoll) {
-      return;
-    }
-
-    const intervalId = window.setInterval(() => {
-      launchFlow(Math.random() > 0.45 ? "NWS" : "Aviation", "poller");
-    }, AUTO_POLL_INTERVAL_MS);
-
-    const timers = timersRef.current;
-    timers.add(intervalId);
-
-    return () => {
-      window.clearInterval(intervalId);
-      timers.delete(intervalId);
-    };
-  }, [autoPoll, launchFlow]);
-
-  useEffect(() => {
-    return () => {
-      clearAllTimers();
-    };
-  }, [clearAllTimers]);
+  const totalRuns = history.length;
+  const completedRuns = history.filter((r) => r.done).length;
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Architecture Toy Visualizer</CardTitle>
+        <CardTitle>Ingest Pipeline</CardTitle>
         <CardDescription>
-          Demonstrates current runtime flow: upstream pull ingestion followed by downstream WebSocket UI updates.
+          How data flows from external APIs to the dashboard UI.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant="outline" onClick={() => launchFlow("NWS", "manual")}>
-            Trigger NWS Pull
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => launchFlow("Aviation", "manual")}>
-            Trigger Aviation Pull
-          </Button>
-          <Button size="sm" onClick={() => setAutoPoll((current) => !current)}>
-            {autoPoll ? "Auto Poll: On" : "Auto Poll: Off"}
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              clearAllTimers();
-              setEvents([]);
-              setMetrics({
-                ingests: 0,
-                dbWrites: 0,
-                websocketPushes: 0,
-                uiRefreshes: 0,
-              });
-            }}
-          >
-            <RefreshCcw className="mr-1.5 h-4 w-4" />
-            Reset
-          </Button>
-        </div>
+        {/* Pipeline stages */}
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          {/* Source indicator */}
+          {activeSource && (
+            <div className="mb-3 flex items-center gap-2 text-xs text-slate-500">
+              <span>Source:</span>
+              <Badge variant={activeSource === "NWS" ? "moderate" : "low"}>
+                {activeSource === "NWS" ? "NWS — alerts, forecasts, observations" : "AWC — METAR, TAF, SIGMET"}
+              </Badge>
+            </div>
+          )}
 
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-          <Metric label="Ingest Runs" value={metrics.ingests} />
-          <Metric label="DB Writes" value={metrics.dbWrites} />
-          <Metric label="Socket Pushes" value={metrics.websocketPushes} />
-          <Metric label="UI Refreshes" value={metrics.uiRefreshes} />
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-          <div className="relative mb-4 h-2 rounded-full bg-slate-200">
-            <motion.div
-              className={cn(
-                "absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border border-white",
-                activeEvent ? "bg-cyan-500 shadow-[0_0_0_6px_rgba(6,182,212,0.18)]" : "bg-slate-400",
-              )}
-              animate={{
-                left: `${
-                  ((activeEvent?.stage ?? LAST_STAGE_INDEX) / LAST_STAGE_INDEX) * 100
-                }%`,
-              }}
-              transition={{ type: "spring", stiffness: 260, damping: 26 }}
-              style={{ translateX: "-50%" }}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
-            {STAGES.map((stage, stageIndex) => {
+          <div className="flex items-center justify-between gap-1">
+            {STAGES.map((stage, i) => {
               const Icon = stage.icon;
-              const reached = activeEvent ? activeEvent.stage >= stageIndex : false;
-              const current = activeEvent ? activeEvent.stage === stageIndex : false;
+              const isActive = activeStage === i;
+              const isReached = activeStage !== null && activeStage >= i;
 
               return (
-                <article
-                  key={stage.title}
-                  className={cn(
-                    "rounded-lg border p-2 text-xs",
-                    reached ? "border-cyan-300 bg-cyan-50" : "border-slate-200 bg-white",
-                    current && "ring-2 ring-cyan-300",
+                <div key={stage.label} className="flex flex-1 items-center">
+                  <motion.div
+                    className={cn(
+                      "flex w-full flex-col items-center gap-1.5 rounded-lg border px-2 py-3 text-center text-xs transition-colors",
+                      isActive
+                        ? "border-cyan-400 bg-cyan-50 ring-2 ring-cyan-200"
+                        : isReached
+                          ? "border-cyan-300 bg-cyan-50"
+                          : "border-slate-200 bg-white",
+                    )}
+                    animate={isActive ? { scale: 1.05 } : { scale: 1 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                  >
+                    <Icon className={cn("h-4 w-4", isReached ? "text-cyan-600" : "text-slate-400")} />
+                    <span className={cn("font-semibold", isReached ? "text-cyan-800" : "text-slate-600")}>
+                      {stage.label}
+                    </span>
+                    <span className="hidden text-[10px] leading-tight text-slate-500 sm:block">
+                      {stage.desc}
+                    </span>
+                  </motion.div>
+                  {i < STAGES.length - 1 && (
+                    <div className="mx-1 flex-shrink-0">
+                      <div className={cn(
+                        "h-0.5 w-3 transition-colors duration-500",
+                        activeStage !== null && activeStage > i ? "bg-cyan-400" : "bg-slate-200",
+                      )} />
+                    </div>
                   )}
-                >
-                  <div className="inline-flex items-center gap-1.5 font-semibold text-slate-800">
-                    <Icon className="h-3.5 w-3.5" />
-                    {stage.title}
-                  </div>
-                  <p className="mt-1 text-slate-600">{stage.description}</p>
-                </article>
+                </div>
               );
             })}
           </div>
         </div>
 
-        <Separator />
-
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-slate-800">Recent Flow Events</h3>
-          <div className="space-y-2">
-            {events.length ? (
-              events.slice(0, 8).map((event) => (
-                <div
-                  key={event.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white p-2 text-sm"
-                >
-                  <div className="flex items-center gap-2">
-                    <Badge variant={event.source === "NWS" ? "moderate" : "low"}>{event.source}</Badge>
-                    <Badge variant="neutral">{event.trigger}</Badge>
-                    <span className="text-slate-700">{STAGES[event.stage].title}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <Badge variant={event.status === "complete" ? "low" : "moderate"}>{event.status}</Badge>
-                    <span>
-                      {formatDistanceToNow(new Date(event.startedAt), {
-                        addSuffix: true,
-                      })}
-                    </span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-slate-600">No flow events yet. Trigger one to watch the architecture path.</p>
-            )}
+        {/* Metrics row */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-lg border border-slate-200 bg-white p-2.5">
+            <p className="text-xs text-slate-500">Total runs</p>
+            <p className="mt-0.5 text-lg font-semibold text-slate-900">{totalRuns}</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-white p-2.5">
+            <p className="text-xs text-slate-500">Completed</p>
+            <p className="mt-0.5 text-lg font-semibold text-emerald-700">{completedRuns}</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-white p-2.5">
+            <p className="text-xs text-slate-500">Status</p>
+            <p className={cn("mt-0.5 text-lg font-semibold", activeStage !== null ? "text-cyan-600" : "text-slate-400")}>
+              {activeStage !== null ? "Running" : "Idle"}
+            </p>
           </div>
         </div>
+
+        <Separator />
+
+        {/* Controls + history */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => runFlow("NWS")} disabled={activeStage !== null}>
+            Trigger NWS
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => runFlow("Aviation")} disabled={activeStage !== null}>
+            Trigger Aviation
+          </Button>
+          <Button size="sm" variant={autoPoll ? "default" : "outline"} onClick={() => setAutoPoll((c) => !c)}>
+            Auto: {autoPoll ? "on" : "off"}
+          </Button>
+        </div>
+
+        {history.length > 0 && (
+          <div className="space-y-1.5">
+            <h4 className="text-xs font-medium text-slate-500">Recent runs</h4>
+            {history.map((run) => (
+              <div key={run.id} className="flex items-center justify-between rounded-md border border-slate-100 bg-white px-3 py-1.5 text-xs">
+                <div className="flex items-center gap-2">
+                  <Badge variant={run.source === "NWS" ? "moderate" : "low"} className="text-[10px]">
+                    {run.source}
+                  </Badge>
+                  <span className={run.done ? "text-emerald-600" : "text-cyan-600"}>
+                    {run.done ? "Complete" : "Running…"}
+                  </span>
+                </div>
+                <span className="text-slate-400">
+                  {formatDistanceToNow(new Date(run.startedAt), { addSuffix: true })}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3">
-      <p className="text-xs text-slate-500">{label}</p>
-      <p className="mt-1 text-xl font-semibold text-slate-900">{value}</p>
-    </div>
   );
 }

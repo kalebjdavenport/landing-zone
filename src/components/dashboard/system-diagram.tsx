@@ -51,7 +51,7 @@ const nodes: ArchitectureNode[] = [
     position: { x: 400, y: -70 },
     data: {
       title: "NWS API",
-      subtitle: "api.weather.gov",
+      subtitle: "Alerts, forecasts, observations",
       badge: "External",
       tone: "teal",
     },
@@ -62,7 +62,7 @@ const nodes: ArchitectureNode[] = [
     position: { x: 400, y: 130 },
     data: {
       title: "Aviation Weather Center",
-      subtitle: "aviationweather.gov/api",
+      subtitle: "METAR, TAF, SIGMET",
       badge: "External",
       tone: "teal",
     },
@@ -106,7 +106,7 @@ const nodes: ArchitectureNode[] = [
     position: { x: 1680, y: 320 },
     data: {
       title: "React Dashboard",
-      subtitle: "KPI cards, route board, overlay map, delta feed",
+      subtitle: "National, route board, location, map, delta feed",
       badge: "UI",
       tone: "blue",
     },
@@ -117,8 +117,30 @@ const nodes: ArchitectureNode[] = [
     position: { x: 1240, y: 320 },
     data: {
       title: "tRPC API",
-      subtitle: "ops + prefs routers",
+      subtitle: "ops router (queries + ingest mutation)",
       badge: "API Layer",
+      tone: "slate",
+    },
+  },
+  {
+    id: "zustand",
+    type: "architecture",
+    position: { x: 1680, y: 540 },
+    data: {
+      title: "Zustand Store",
+      subtitle: "Location, route, overlay, view state",
+      badge: "Client State",
+      tone: "slate",
+    },
+  },
+  {
+    id: "airports",
+    type: "architecture",
+    position: { x: 1240, y: 540 },
+    data: {
+      title: "Airport Database",
+      subtitle: "305 US airports, client-side search",
+      badge: "Static Data",
       tone: "slate",
     },
   },
@@ -129,7 +151,9 @@ const edges: Edge[] = [
   {
     id: "e-scheduler-ingest",
     source: "scheduler",
+    sourceHandle: "source-right",
     target: "ingest",
+    targetHandle: "target-left",
     label: "POST every 10 min",
     animated: true,
     style: { stroke: "#0891b2", strokeWidth: 2 },
@@ -139,8 +163,10 @@ const edges: Edge[] = [
   {
     id: "e-nws-ingest",
     source: "nws",
+    sourceHandle: "source-right",
     target: "ingest",
-    label: "alerts, forecasts",
+    targetHandle: "target-top",
+    label: "alerts, forecasts, obs",
     animated: true,
     style: { stroke: "#0891b2", strokeWidth: 2 },
     markerEnd: { type: MarkerType.ArrowClosed, color: "#0891b2" },
@@ -149,8 +175,10 @@ const edges: Edge[] = [
   {
     id: "e-awc-ingest",
     source: "awc",
+    sourceHandle: "source-right",
     target: "ingest",
-    label: "METAR, SIGMET",
+    targetHandle: "target-bottom",
+    label: "METAR, TAF, SIGMET",
     animated: true,
     style: { stroke: "#0891b2", strokeWidth: 2 },
     markerEnd: { type: MarkerType.ArrowClosed, color: "#0891b2" },
@@ -159,7 +187,9 @@ const edges: Edge[] = [
   {
     id: "e-ingest-postgres",
     source: "ingest",
+    sourceHandle: "source-right",
     target: "postgres",
+    targetHandle: "target-left",
     label: "upsert + event_log",
     animated: true,
     style: { stroke: "#0891b2", strokeWidth: 2 },
@@ -169,7 +199,9 @@ const edges: Edge[] = [
   {
     id: "e-postgres-realtime",
     source: "postgres",
+    sourceHandle: "source-right",
     target: "realtime",
+    targetHandle: "target-left",
     label: "postgres_changes",
     animated: true,
     style: { stroke: "#0891b2", strokeWidth: 2 },
@@ -179,7 +211,9 @@ const edges: Edge[] = [
   {
     id: "e-realtime-react",
     source: "realtime",
+    sourceHandle: "source-bottom",
     target: "react",
+    targetHandle: "target-top",
     label: "WebSocket push",
     animated: true,
     style: { stroke: "#0891b2", strokeWidth: 2 },
@@ -209,6 +243,29 @@ const edges: Edge[] = [
     markerEnd: { type: MarkerType.ArrowClosed, color: "#d97706" },
     type: "smoothstep",
   },
+  // Client-side path (slate)
+  {
+    id: "e-airports-zustand",
+    source: "airports",
+    sourceHandle: "source-right",
+    target: "zustand",
+    targetHandle: "target-left",
+    label: "search → setLocation",
+    style: { stroke: "#64748b", strokeWidth: 2 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: "#64748b" },
+    type: "smoothstep",
+  },
+  {
+    id: "e-zustand-react",
+    source: "zustand",
+    sourceHandle: "source-top",
+    target: "react",
+    targetHandle: "target-bottom",
+    label: "state + URL sync",
+    style: { stroke: "#64748b", strokeWidth: 2 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: "#64748b" },
+    type: "smoothstep",
+  },
 ];
 
 const nodeTypes = {
@@ -221,11 +278,11 @@ export function SystemDiagram() {
       <CardHeader>
         <CardTitle>High-Level System Diagram</CardTitle>
         <CardDescription>
-          Blue edges trace the ingest and realtime push path. Amber edges trace the user query path.
+          Blue: ingest + realtime push. Amber: query path. Gray: client-side state.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="h-[340px] w-full overflow-hidden rounded-xl border border-slate-200 bg-white md:h-[400px]">
+        <div className="h-[400px] w-full overflow-hidden rounded-xl border border-slate-200 bg-white md:h-[500px]">
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -254,6 +311,9 @@ export function SystemDiagram() {
           </Badge>
           <Badge variant="neutral" className="font-medium">
             Amber: query path
+          </Badge>
+          <Badge variant="neutral" className="font-medium">
+            Gray: client-side state
           </Badge>
         </div>
       </CardContent>

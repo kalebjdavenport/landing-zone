@@ -22,11 +22,22 @@ Five views, each mapped to a real dispatcher duty:
 |------|-----------------|-------------------|
 | **National Report** | Pre-flight weather analysis | Alert count, severity badge, risk guidance translated into dispatcher terms |
 | **Route Board** | Go/no-go + flight monitoring | Flight category, visibility, ceiling, wind, and hazards per station |
+| **Overlay Map** | Spatial awareness | **Primary visualization** — METAR, TAF, SIGMET, and NOTAM markers over NEXRAD radar, cloud, and temperature tiles |
 | **Location Weather** | Alternate selection | Full observation: flight cat, vis, ceiling, wind/gusts, temp/dewpoint spread, altimeter, alerts with expiry |
-| **Overlay Map** | Spatial awareness | METAR, TAF, SIGMET, and NOTAM markers over NEXRAD radar tiles |
-| **Delta Feed** | In-flight monitoring | Chronological stream of weather events — answers "what changed in the last 10 minutes?" |
+| **Delta Feed** | In-flight monitoring | Top 10 weather events sorted by severity, then recency — answers "what's most dangerous right now?" |
 
 These views work together because dispatch decisions require cross-referencing severity, station data, geography, and recency. No single chart covers that.
+
+### Why a map, not a table
+
+The overlay map is the centerpiece because the dispatcher's core question is spatial: **"Does my route pass through this hazard?"**
+
+- **Weather hazards have irregular boundaries.** A convective SIGMET covers an arbitrary polygon — a table of coordinates forces Cynthia to mentally project them onto her routes. On the map, she sees the polygon overlaid in under a second.
+- **Radar data is inherently raster.** NEXRAD precipitation returns are a grid of reflectivity values. There is no meaningful tabular representation — only a map overlay reveals where precipitation intersects routes.
+- **Dispatchers cross-reference layers simultaneously.** Radar + SIGMETs + METAR stations + NOTAMs need to be seen together. On a map they stack; in tables, Cynthia would need to mentally reconstruct the spatial picture from separate lists.
+- **Station patterns are geographic.** A table shows KATL ceiling 800ft and KJFK ceiling 200ft individually, but it cannot show the band of IFR conditions connecting them along the route.
+
+Precise numeric values (altimeter, wind components, temp/dewpoint spread) are better as text — that's what the Location Weather card and Route Board provide. The map answers "where and how big," they answer "how much." See [docs/DESIGN.md](docs/DESIGN.md) for the full rationale.
 
 ---
 

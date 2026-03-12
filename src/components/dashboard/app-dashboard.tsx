@@ -146,53 +146,60 @@ export function AppDashboard() {
               ) : null}
             </section>
 
+            {/* ── Weather Map — primary visualization ── */}
             <section>
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Location Details</h2>
-              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                {locationWeather.isLoading ? (
-                  <Skeleton className="h-52 w-full" />
-                ) : locationWeather.isError ? (
-                  <Card className="p-6 text-center">
-                    <p className="text-sm text-slate-500">Unable to load location weather.</p>
-                    <button onClick={() => locationWeather.refetch()} className="mt-2 text-sm text-cyan-600 hover:underline cursor-pointer">
-                      Try again
-                    </button>
-                  </Card>
-                ) : (
-                  <LocationWeatherCard weather={locationWeather.data ?? null} label={locationLabel} />
-                )}
-                {overlays.isLoading ? (
-                  <Skeleton className="h-52 w-full" />
-                ) : overlays.isError ? (
-                  <Card className="p-6 text-center">
-                    <p className="text-sm text-slate-500">Unable to load aviation overlays.</p>
-                    <button onClick={() => overlays.refetch()} className="mt-2 text-sm text-cyan-600 hover:underline cursor-pointer">
-                      Try again
-                    </button>
-                  </Card>
-                ) : (
-                  <OverlayMapPanel
-                    overlays={overlays.data ?? []}
-                    center={chosenCenter}
-                  />
-                )}
-              </div>
-            </section>
-
-            <section>
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Live Changes</h2>
-              {deltaFeed.isLoading ? (
-                <Skeleton className="h-52 w-full" />
-              ) : deltaFeed.isError ? (
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Weather Map</h2>
+              {overlays.isLoading ? (
+                <Skeleton className="h-[500px] w-full" />
+              ) : overlays.isError ? (
                 <Card className="p-6 text-center">
-                  <p className="text-sm text-slate-500">Unable to load live changes.</p>
-                  <button onClick={() => deltaFeed.refetch()} className="mt-2 text-sm text-cyan-600 hover:underline cursor-pointer">
+                  <p className="text-sm text-slate-500">Unable to load aviation overlays.</p>
+                  <button onClick={() => overlays.refetch()} className="mt-2 text-sm text-cyan-600 hover:underline cursor-pointer">
                     Try again
                   </button>
                 </Card>
               ) : (
-                <DeltaFeedCard items={deltaFeed.data ?? []} />
+                <OverlayMapPanel
+                  overlays={overlays.data ?? []}
+                  center={chosenCenter}
+                />
               )}
+            </section>
+
+            {/* ── Location details + Live changes side by side ── */}
+            <section>
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <div>
+                  <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Location Details</h2>
+                  {locationWeather.isLoading ? (
+                    <Skeleton className="h-52 w-full" />
+                  ) : locationWeather.isError ? (
+                    <Card className="p-6 text-center">
+                      <p className="text-sm text-slate-500">Unable to load location weather.</p>
+                      <button onClick={() => locationWeather.refetch()} className="mt-2 text-sm text-cyan-600 hover:underline cursor-pointer">
+                        Try again
+                      </button>
+                    </Card>
+                  ) : (
+                    <LocationWeatherCard weather={locationWeather.data ?? null} label={locationLabel} />
+                  )}
+                </div>
+                <div>
+                  <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Live Changes</h2>
+                  {deltaFeed.isLoading ? (
+                    <Skeleton className="h-52 w-full" />
+                  ) : deltaFeed.isError ? (
+                    <Card className="p-6 text-center">
+                      <p className="text-sm text-slate-500">Unable to load live changes.</p>
+                      <button onClick={() => deltaFeed.refetch()} className="mt-2 text-sm text-cyan-600 hover:underline cursor-pointer">
+                        Try again
+                      </button>
+                    </Card>
+                  ) : (
+                    <DeltaFeedCard items={deltaFeed.data ?? []} />
+                  )}
+                </div>
+              </div>
             </section>
           </>
         ) : (

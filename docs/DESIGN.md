@@ -60,10 +60,24 @@ Why it exists for Cynthia: dispatch decisions are event-driven. "What changed in
 |-----------|---------|
 | KPI cards | National weather posture at a glance -- total alert count, severity distribution, data freshness |
 | Route board | Station-level operational status for each route segment, showing ceiling/visibility/wind in dispatcher-relevant terms |
-| Overlay map | Spatial hazard awareness -- convective SIGMETs, AIRMETs, and active alerts plotted geographically so Cynthia can see which routes are affected |
-| Delta feed | Temporal change awareness -- what happened, when, in chronological order |
+| Overlay map | Spatial hazard awareness -- the primary visualization, explained below |
+| Delta feed | Temporal change awareness -- what happened, when, sorted by severity then recency |
 
 These four components communicate operational risk faster than plain tables by pairing severity with geography and recency.
+
+### Why a map instead of text or data tables
+
+The overlay map is the central visualization in Landing Zone because the dispatcher's core question is spatial: **"Does my route pass through this hazard?"** That question cannot be answered efficiently by a table.
+
+**Weather hazards are spatial phenomena with irregular boundaries.** A convective SIGMET covers an arbitrary polygon -- for example, a band of thunderstorms stretching from central Virginia to southern Connecticut. A table row saying "SIGMET 45E -- convective activity, moderate turbulence, 38.5°N to 40.3°N, -78.0°W to -75.5°W" forces Cynthia to mentally project those coordinates onto her route network. On a map, she sees the polygon overlaid on her route in under a second.
+
+**NEXRAD radar data is inherently raster.** Precipitation returns are a grid of reflectivity values across the continental US. There is no meaningful tabular representation -- a table of "reflectivity at grid cell (x, y)" would be thousands of rows of numbers. A radar tile overlay on a map immediately shows Cynthia where precipitation is, how intense it is, and whether it intersects her routes.
+
+**Dispatchers cross-reference multiple layers simultaneously.** Cynthia needs to see radar returns, SIGMET boundaries, METAR station observations, and NOTAM restrictions at the same time. On a map, these layers stack and she can visually correlate them: "There's a line of moderate returns crossing KJFK approach, and the METAR shows 3SM visibility, and there's an active SIGMET overlapping the same area." In a table, this correlation requires scanning across separate tables and mentally reconstructing the spatial picture.
+
+**Station-level data gains meaning from geography.** A table can show that KATL ceiling is 800ft and KJFK ceiling is 200ft, but it cannot show that there's a band of IFR conditions connecting the two airports along the entire route. The map's color-coded METAR markers (VFR green, MVFR blue, IFR red, LIFR magenta) instantly reveal geographic patterns in station data that tables hide.
+
+**What the map does not replace.** Precise numeric values (altimeter settings, wind components, temperature/dewpoint spreads) are better served by the Location Details card and Route Board table. The map complements these views -- it answers "where" while they answer "how much." The dashboard uses both because dispatch decisions require both spatial awareness and precise operational numbers.
 
 ## Architectural Decisions
 

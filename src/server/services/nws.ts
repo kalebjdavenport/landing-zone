@@ -251,16 +251,6 @@ async function fetchLatestObservation(stationUrl: string): Promise<NwsObservatio
   return response.json() as Promise<NwsObservationResponse>;
 }
 
-/** Parse a wind speed string like "15 kt" or "10 mph" into knots, or null */
-export function parseWindSpeedKt(windString: string | null): number | null {
-  if (!windString) {
-    return null;
-  }
-
-  const numeric = Number(windString.replace(/[^0-9.]/g, ""));
-  return Number.isNaN(numeric) ? null : numeric;
-}
-
 export async function fetchNationalReportFromNws(): Promise<NationalReport> {
   const generatedAt = nowIso();
 
